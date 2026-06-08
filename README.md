@@ -7,7 +7,7 @@ Coleção de scripts e procedimentos versionados que padronizam a instalação, 
 Você pode iniciar o menu interativo com todas as ferramentas de diagnóstico e manutenção através de um único comando em qualquer servidor com curl:
 
 ```bash
-bash <(curl -sSL https://raw.githubusercontent.com/Voxcorp/voxcorp-setup/main/setup.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/munin81/setup/main/setup.sh)
 ```
 
 *(Nota: a URL real dependerá de onde este repositório for hospedado)*

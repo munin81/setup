@@ -8,7 +8,7 @@
 
 # Verifica se o diretório do projeto já existe
 PROJECT_DIR="/opt/voxcorp-setup"
-REPO_URL="https://github.com/Voxcorp/voxcorp-setup.git" # Substitua pela URL real
+REPO_URL="https://github.com/munin81/setup.git" # Repositório no GitHub
 
 # Se quiser fazer um "auto-update" rápido antes de rodar o menu:
 # Se o script está rodando direto do curl, ele pode clonar para /opt
@@ -50,6 +50,7 @@ show_menu() {
     echo "3. Alterar Bloco DID (Manutenção)"
     echo "4. Deletar CDR / Oferta (Manutenção)"
     echo "5. Ajustar regras de Firewall/IPtables (Instalação)"
+    echo "6. Instalar MagnusBilling 7 Oficial (Instalação base)"
     echo "0. Sair"
     echo "------------------------------------------------------------------"
     read -p "Opção: " OPTION
@@ -81,6 +82,11 @@ while true; do
             ;;
         5)
             bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus-voxcorp_136.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        6)
+            bash "$PROJECT_DIR/scripts/instalacao/instalar_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

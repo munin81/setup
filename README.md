@@ -1,6 +1,6 @@
 # Magnus Utilities
 
-Coleção de scripts e procedimentos versionados que padronizam a instalação, customização, troubleshooting e manutenção de servidores **MagnusBilling 7.x sobre Debian 10/11** em operações de VoIP da Admin.
+Coleção de scripts e procedimentos versionados que padronizam a instalação, customização, troubleshooting e manutenção de servidores **MagnusBilling 7.x sobre Debian 10/11** em operações de VoIP.
 
 ## Instalação Rápida (Interativa)
 
@@ -9,8 +9,6 @@ Você pode iniciar o menu interativo com todas as ferramentas de diagnóstico e 
 ```bash
 bash <(curl -sSL https://raw.githubusercontent.com/munin81/setup/main/setup.sh)
 ```
-
-*(Nota: a URL real dependerá de onde este repositório for hospedado)*
 
 ## Estrutura de Diretórios
 

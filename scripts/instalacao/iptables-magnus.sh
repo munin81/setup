@@ -1,13 +1,13 @@
 #!/bin/bash
-# Iptables Magnus + Voxcorp - Servidor 136
+# Iptables Magnus + Admin - Servidor 136
 # Baseado em: https://wiki.magnusbilling.org/pt-br/source/security/iptables.html
-# Customizações Voxcorp: SSH 22022, blocos 190.89.250.0/24 e 186.194.49.0/24,
+# Customizações Admin: SSH 22022, blocos 1.2.3.0/24 e 5.6.7.0/24,
 # MySQL 3306 para API N8N, sem firewalld, deadman switch via 'at'
 
 set -e
 
-VOXCORP_BLOCK_1="190.89.250.0/24"
-VOXCORP_BLOCK_2="186.194.49.0/24"
+ADMIN_BLOCK_1="1.2.3.0/24"  # Troque pelo seu bloco
+ADMIN_BLOCK_2="5.6.7.0/24"  # Troque pelo seu bloco
 
 echo "[1/15] Limpando regras existentes e setando policy ACCEPT temporária..."
 iptables -P INPUT ACCEPT
@@ -26,13 +26,13 @@ iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 echo "[4/15] ICMP echo-request ACCEPT..."
 iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
 
-echo "[5/15] SSH 22022 só dos blocos Voxcorp..."
-iptables -A INPUT -p tcp --dport 22022 -s $VOXCORP_BLOCK_1 -j ACCEPT
-iptables -A INPUT -p tcp --dport 22022 -s $VOXCORP_BLOCK_2 -j ACCEPT
+echo "[5/15] SSH 22022 só dos blocos Admin..."
+iptables -A INPUT -p tcp --dport 22022 -s $ADMIN_BLOCK_1 -j ACCEPT
+iptables -A INPUT -p tcp --dport 22022 -s $ADMIN_BLOCK_2 -j ACCEPT
 
-echo "[6/15] MySQL 3306 só dos blocos Voxcorp (API N8N)..."
-iptables -A INPUT -p tcp --dport 3306 -s $VOXCORP_BLOCK_1 -j ACCEPT
-iptables -A INPUT -p tcp --dport 3306 -s $VOXCORP_BLOCK_2 -j ACCEPT
+echo "[6/15] MySQL 3306 só dos blocos Admin (API N8N)..."
+iptables -A INPUT -p tcp --dport 3306 -s $ADMIN_BLOCK_1 -j ACCEPT
+iptables -A INPUT -p tcp --dport 3306 -s $ADMIN_BLOCK_2 -j ACCEPT
 
 echo "[7/15] HTTP 80 público..."
 iptables -A INPUT -p tcp --dport 80 -j ACCEPT

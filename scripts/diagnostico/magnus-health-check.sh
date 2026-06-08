@@ -1,9 +1,9 @@
 #!/bin/bash
 # =====================================================================
-# Voxcorp Setup — Magnus Health Check
+# Magnus Utilities — Magnus Health Check
 # Versão: 3.0 (08/06/2026)
 # Função: Verificação read-only de saúde Magnus + Asterisk
-# Autor: Voxcorp Telecom
+# Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
 #   - MagnusBilling 7.x

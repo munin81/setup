@@ -8,12 +8,12 @@ certbot certificates | grep -E "Domains:|Expiry Date:|Path:" || echo "[!] ALERTA
 # 2. Auditoria de Usuários do MariaDB
 # Verifica se existem acessos que NÃO são os autorizados (n8n, suporte local e localhosts)
 echo "[-] Analisando permissões de Banco de Dados (MariaDB)..."
-# Lista usuários root e voxcorp fora do padrão de segurança definido
+# Lista usuários root e admin_user fora do padrão de segurança definido
 mysql -u root -p"$(cat /root/passwordMysql.log)" -e "
 SELECT User, Host, 'ACESSO NÃO RECONHECIDO' as Status 
 FROM mysql.user 
 WHERE (User='root' AND Host NOT IN ('localhost', '127.0.0.1', '186.194.49.134'))
-OR (User='voxcorp' AND Host NOT IN ('localhost', '127.0.0.1', '186.194.49.140', '186.194.49.134'));"
+OR (User='admin_user' AND Host NOT IN ('localhost', '127.0.0.1', '186.194.49.140', '186.194.49.134'));"
 
 # 3. Auditoria de Acessos SSH Ativos
 echo "[-] Verificando origem das conexões SSH atuais..."

@@ -1,10 +1,10 @@
 #!/bin/bash
 # =====================================================================
-# Voxcorp Setup — migrar_magnus.sh
+# Magnus Utilities — migrar_magnus.sh
 # Versão: 5.0 (08 de junho de 2026)
 # Função: Migração completa de MagnusBilling entre servidores
 #         (cenário base: 136 → 119, mas parametrizável)
-# Autor: Voxcorp Telecom (EMB Serviços em Telecomunicações)
+# Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
 #   - Rodar no servidor DESTINO (alvo da migração) como root
@@ -26,16 +26,16 @@
 #   6.  Captura /etc/asterisk/ da origem (rsync)
 #   7.  Captura /var/lib/asterisk/sounds/ da origem (rsync)
 #   8.  Aplicação no destino: parar serviços, importar banco, ajustar configs
-#   9.  Customizações Voxcorp — Banco (17 itens parte 1)
-#   10. Customizações Voxcorp — Segurança / firewalld
-#   11. Customizações Voxcorp — DNS / SSL
-#   12. Customizações Voxcorp — Cron / Logrotate / Backup
-#   13. Customizações Voxcorp — Página de acesso bloqueado
+#   9.  Customizações Admin — Banco (17 itens parte 1)
+#   10. Customizações Admin — Segurança / firewalld
+#   11. Customizações Admin — DNS / SSL
+#   12. Customizações Admin — Cron / Logrotate / Backup
+#   13. Customizações Admin — Página de acesso bloqueado
 #   14. Reinicialização ordenada dos serviços
 #   15. Validação final
 #   16. Resumo e próximos passos
 #
-# Idempotência: PARCIAL (etapas Voxcorp são idempotentes; importação banco NÃO)
+# Idempotência: PARCIAL (etapas Admin são idempotentes; importação banco NÃO)
 # Modifica estado: SIM (massivamente — vide fases 8 em diante)
 # Requer janela de manutenção: SIM (parar serviços no destino é obrigatório)
 #
@@ -96,7 +96,7 @@ for ARG in "$@"; do
   case "$ARG" in
     --dry-run) DRY_RUN=1 ;;
     --help|-h)
-      sed -n '/^# Voxcorp Setup/,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '/^# Magnus Utilities/,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) echo "Opção desconhecida: $ARG"; exit 1 ;;
@@ -106,7 +106,7 @@ done
 # ---------------------------------------------------------------------
 # Diretório e log
 # ---------------------------------------------------------------------
-LOG_DIR="/var/log/voxcorp-setup"
+LOG_DIR="/var/log/magnus-utils"
 mkdir -p "$LOG_DIR" || erro "Sem permissão em $LOG_DIR — rode como root"
 chmod 750 "$LOG_DIR"
 LOG_FILE="$LOG_DIR/migrar-magnus-$(date +%Y%m%d_%H%M%S).log"
@@ -201,7 +201,7 @@ echo "  SSL:       $([ "$SSL_OPCAO" = "1" ] && echo "Gerar via Let's Encrypt" ||
 echo "  Parar origem: $([ "$PARAR_ORIGEM" = "1" ] && echo "SIM" || echo "NÃO")"
 echo ""
 warn "Esta operação SUBSTITUI completamente o Magnus do destino pelos dados da origem."
-warn "Tabelas customizadas Voxcorp (pkg_password_reset, pkg_tickets, pkg_ticket_messages) virão da origem."
+warn "Tabelas customizadas Admin (pkg_password_reset, pkg_tickets, pkg_ticket_messages) virão da origem."
 echo ""
 confirma "Confirma todos os parâmetros acima?"
 
@@ -234,7 +234,7 @@ fi
 # =====================================================================
 titulo "FASE 4/16 — Backup do estado atual do destino"
 
-BACKUP_DIR="/root/voxcorp-backup-pre-migracao-$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="/root/magnus-backup-pre-migracao-$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
@@ -329,9 +329,9 @@ chown -R asterisk:asterisk /var/lib/asterisk/sounds/
 ok "Sons aplicados"
 
 # =====================================================================
-# FASE 9 — CUSTOMIZAÇÕES VOXCORP — BANCO (itens 1-7 da lista)
+# FASE 9 — CUSTOMIZAÇÕES MAGNUS — BANCO (itens 1-7 da lista)
 # =====================================================================
-titulo "FASE 9/16 — Customizações Voxcorp: Banco"
+titulo "FASE 9/16 — Customizações Admin: Banco"
 
 # 1) dbhost = 127.0.0.1 (padrão Magnus, já deve estar do res_config_mysql.conf preservado)
 DBHOST_ATUAL=$(grep "^dbhost" /etc/asterisk/res_config_mysql.conf | awk -F= '{print $2}' | tr -d ' ')
@@ -354,7 +354,7 @@ mysql_local -e "
 " 2>/dev/null
 ok "mbillingUser criado/atualizado"
 
-# 3) Tabelas customizadas Voxcorp já vieram no dump da origem — só validar
+# 3) Tabelas customizadas Admin já vieram no dump da origem — só validar
 for T in pkg_password_reset pkg_tickets pkg_ticket_messages; do
   EXISTS=$(mysql_local mbilling -N -e "SHOW TABLES LIKE '$T';" 2>/dev/null)
   [ -n "$EXISTS" ] && ok "Tabela customizada $T: presente" || warn "Tabela customizada $T: AUSENTE (verificar origem)"
@@ -365,18 +365,18 @@ echo "$SENHA_ROOT_LOCAL" > /root/passwordMysql.log
 chmod 600 /root/passwordMysql.log
 ok "Senha root salva em /root/passwordMysql.log (chmod 600)"
 
-# 5) Criar voxcorp@IP_VPN com plugin correto
-mysql_local -e "DROP USER IF EXISTS 'voxcorp'@'$IP_VPN_ADMIN';" 2>/dev/null
-read -sp "  Senha para voxcorp@$IP_VPN_ADMIN (sem caracteres especiais \$!'\\): " SENHA_VOXCORP; echo ""
-[ -z "$SENHA_VOXCORP" ] && erro "Senha do voxcorp é obrigatória"
+# 5) Criar admin_user@IP_VPN com plugin correto
+mysql_local -e "DROP USER IF EXISTS 'admin_user'@'$IP_VPN_ADMIN';" 2>/dev/null
+read -sp "  Senha para admin_user@$IP_VPN_ADMIN (sem caracteres especiais \$!'\\): " SENHA_MAGNUS; echo ""
+[ -z "$SENHA_MAGNUS" ] && erro "Senha do admin_user é obrigatória"
 
 mysql_local -e "
-  CREATE USER 'voxcorp'@'$IP_VPN_ADMIN' IDENTIFIED BY '$SENHA_VOXCORP';
-  GRANT ALL PRIVILEGES ON *.* TO 'voxcorp'@'$IP_VPN_ADMIN' WITH GRANT OPTION;
-  ALTER USER 'voxcorp'@'$IP_VPN_ADMIN' IDENTIFIED VIA mysql_native_password USING PASSWORD('$SENHA_VOXCORP');
+  CREATE USER 'admin_user'@'$IP_VPN_ADMIN' IDENTIFIED BY '$SENHA_MAGNUS';
+  GRANT ALL PRIVILEGES ON *.* TO 'admin_user'@'$IP_VPN_ADMIN' WITH GRANT OPTION;
+  ALTER USER 'admin_user'@'$IP_VPN_ADMIN' IDENTIFIED VIA mysql_native_password USING PASSWORD('$SENHA_MAGNUS');
   FLUSH PRIVILEGES;
 " 2>/dev/null
-ok "voxcorp@$IP_VPN_ADMIN criado (com plugin mysql_native_password)"
+ok "admin_user@$IP_VPN_ADMIN criado (com plugin mysql_native_password)"
 
 # 6) Limpar pkg_firewall (regras inválidas que vêm do banco da origem)
 mysql_local mbilling -e "TRUNCATE TABLE pkg_firewall;" 2>/dev/null && ok "pkg_firewall limpa"
@@ -386,9 +386,9 @@ rm -rf /var/www/html/mbilling/protected/runtime/* 2>/dev/null
 ok "Runtime do Magnus limpo"
 
 # =====================================================================
-# FASE 10 — CUSTOMIZAÇÕES VOXCORP — SEGURANÇA / FIREWALLD
+# FASE 10 — CUSTOMIZAÇÕES MAGNUS — SEGURANÇA / FIREWALLD
 # =====================================================================
-titulo "FASE 10/16 — Customizações Voxcorp: Segurança / firewalld"
+titulo "FASE 10/16 — Customizações Admin: Segurança / firewalld"
 
 # 8) SSH na porta 22022
 if ! grep -qE "^Port 22022" /etc/ssh/sshd_config; then
@@ -454,14 +454,14 @@ ok "firewalld configurado: SSH/MySQL restritos ao bloco $BLOCO_ADMIN, anti-scann
 systemctl is-active fail2ban >/dev/null 2>&1 && ok "fail2ban ativo" || warn "fail2ban não ativo (instalar manualmente)"
 
 # =====================================================================
-# FASE 11 — CUSTOMIZAÇÕES VOXCORP — DNS / SSL
+# FASE 11 — CUSTOMIZAÇÕES MAGNUS — DNS / SSL
 # =====================================================================
-titulo "FASE 11/16 — Customizações Voxcorp: DNS / SSL"
+titulo "FASE 11/16 — Customizações Admin: DNS / SSL"
 
 if [ -n "$DOMINIO_DESTINO" ]; then
   # 12) Configurar Apache VirtualHost
-  if [ ! -f "/etc/apache2/sites-available/voxcorp-magnus.conf" ]; then
-    cat > /etc/apache2/sites-available/voxcorp-magnus.conf << APACHEEOF
+  if [ ! -f "/etc/apache2/sites-available/magnus-magnus.conf" ]; then
+    cat > /etc/apache2/sites-available/magnus-magnus.conf << APACHEEOF
 <VirtualHost *:80>
     ServerName $DOMINIO_DESTINO
     DocumentRoot /var/www/html/mbilling
@@ -469,11 +469,11 @@ if [ -n "$DOMINIO_DESTINO" ]; then
         AllowOverride All
         Require all granted
     </Directory>
-    ErrorLog \${APACHE_LOG_DIR}/voxcorp-magnus-error.log
-    CustomLog \${APACHE_LOG_DIR}/voxcorp-magnus-access.log combined
+    ErrorLog \${APACHE_LOG_DIR}/magnus-magnus-error.log
+    CustomLog \${APACHE_LOG_DIR}/magnus-magnus-access.log combined
 </VirtualHost>
 APACHEEOF
-    a2ensite voxcorp-magnus.conf >/dev/null 2>&1
+    a2ensite magnus-magnus.conf >/dev/null 2>&1
     a2enmod rewrite ssl >/dev/null 2>&1
     ok "Apache VirtualHost criado para $DOMINIO_DESTINO"
   else
@@ -487,7 +487,7 @@ APACHEEOF
       apt-get install -y certbot python3-certbot-apache >/dev/null 2>&1
     fi
     warn "Vou tentar gerar SSL — domínio $DOMINIO_DESTINO precisa estar apontando para este IP"
-    certbot --apache -d "$DOMINIO_DESTINO" --non-interactive --agree-tos --email admin@voxcorptelecom.com.br --redirect 2>&1 | tail -5
+    certbot --apache -d "$DOMINIO_DESTINO" --non-interactive --agree-tos --email admin@admin_usertelecom.com.br --redirect 2>&1 | tail -5
     ok "SSL Let's Encrypt configurado (verificar acima)"
   else
     info "SSL pulado conforme opção"
@@ -497,17 +497,17 @@ else
 fi
 
 # =====================================================================
-# FASE 12 — CUSTOMIZAÇÕES VOXCORP — CRON / LOGROTATE / BACKUP
+# FASE 12 — CUSTOMIZAÇÕES MAGNUS — CRON / LOGROTATE / BACKUP
 # =====================================================================
-titulo "FASE 12/16 — Customizações Voxcorp: Cron / Logrotate / Backup"
+titulo "FASE 12/16 — Customizações Admin: Cron / Logrotate / Backup"
 
 # 14) Cron do Magnus (geralmente já existe, validar)
 CRON_COUNT=$(crontab -l 2>/dev/null | grep -cE "magnus|mbilling|cron\.php")
 [ "$CRON_COUNT" -gt 0 ] && ok "Cron Magnus presente ($CRON_COUNT linhas)" || warn "Sem cron Magnus — verificar"
 
 # 15) Logrotate
-if [ ! -f "/etc/logrotate.d/voxcorp-magnus" ]; then
-  cat > /etc/logrotate.d/voxcorp-magnus << 'LOGROTATEEOF'
+if [ ! -f "/etc/logrotate.d/magnus-magnus" ]; then
+  cat > /etc/logrotate.d/magnus-magnus << 'LOGROTATEEOF'
 /var/www/html/mbilling/protected/runtime/*.log {
     daily
     rotate 14
@@ -523,10 +523,10 @@ else
 fi
 
 # 16) Backup automático diário
-if [ ! -f "/etc/cron.daily/voxcorp-backup-magnus" ]; then
-  cat > /etc/cron.daily/voxcorp-backup-magnus << 'BACKUPEOF'
+if [ ! -f "/etc/cron.daily/magnus-backup-magnus" ]; then
+  cat > /etc/cron.daily/magnus-backup-magnus << 'BACKUPEOF'
 #!/bin/bash
-BACKUP_DIR="/var/backups/voxcorp-magnus"
+BACKUP_DIR="/var/backups/magnus-magnus"
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 SENHA=$(cat /root/passwordMysql.log)
@@ -534,8 +534,8 @@ MYSQL_PWD="$SENHA" mysqldump --single-transaction --quick --routines --triggers 
 # manter últimos 7 dias
 find "$BACKUP_DIR" -name "mbilling-*.sql.gz" -mtime +7 -delete
 BACKUPEOF
-  chmod +x /etc/cron.daily/voxcorp-backup-magnus
-  ok "Backup automático diário em /etc/cron.daily/voxcorp-backup-magnus"
+  chmod +x /etc/cron.daily/magnus-backup-magnus
+  ok "Backup automático diário em /etc/cron.daily/magnus-backup-magnus"
 else
   ok "Backup automático já configurado"
 fi
@@ -552,7 +552,7 @@ cat > /var/www/html/blocked/index.html << 'HTMLEOF'
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Acesso Restrito - Voxcorp</title>
+  <title>Acesso Restrito - Admin</title>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 50px; background: #1E1530; color: white; }
     h1 { color: #FF8A2B; }
@@ -563,7 +563,7 @@ cat > /var/www/html/blocked/index.html << 'HTMLEOF'
   <h1>Acesso Restrito</h1>
   <p>Este sistema é de uso autorizado apenas.</p>
   <p>Se você precisa acessar, entre em contato com o administrador.</p>
-  <p><small>Voxcorp Telecom</small></p>
+  <p><small>Comunidade MagnusBilling</small></p>
 </body>
 </html>
 HTMLEOF
@@ -642,7 +642,7 @@ echo ""
 echo "  1. Validar acesso pelo navegador:"
 [ -n "$DOMINIO_DESTINO" ] && echo "       https://$DOMINIO_DESTINO/" || echo "       http://$(hostname -I | awk '{print $1}')/"
 echo ""
-echo "  2. Validar DBeaver com voxcorp@$IP_VPN_ADMIN"
+echo "  2. Validar DBeaver com admin_user@$IP_VPN_ADMIN"
 echo ""
 echo "  3. Rodar health check:"
 echo "       bash /root/magnus-health-check.sh"
@@ -660,6 +660,6 @@ echo "       mysql -uroot mbilling < $BACKUP_DIR/mbilling-destino-antes.sql"
 echo "       tar xzf $BACKUP_DIR/etc-asterisk-antes.tar.gz -C /"
 echo "       systemctl restart asterisk apache2 mariadb"
 echo ""
-warn "TROCAR a senha do voxcorp@$IP_VPN_ADMIN se foi exposta neste log!"
+warn "TROCAR a senha do admin_user@$IP_VPN_ADMIN se foi exposta neste log!"
 echo ""
 exit 0

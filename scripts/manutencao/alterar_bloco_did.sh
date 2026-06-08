@@ -1,9 +1,9 @@
 #!/bin/bash
 # =====================================================================
-# Voxcorp Setup — alterar_bloco_did.sh
+# Magnus Utilities — alterar_bloco_did.sh
 # Versão: 4.0 (08 de junho de 2026)
 # Função: Reatribuir DIDs em massa para novo dono + criar rotas SIP
-# Autor: Voxcorp Telecom (EMB Serviços em Telecomunicações)
+# Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
 #   - Magnus 7.x + MariaDB 10.x acessível em localhost
@@ -37,8 +37,8 @@
 #   [2] Validação de alcance do destino SIP (ping + sip show peers)
 #   [3] Flag --dry-run para simular sem executar
 #   [4] Lógica do prefixo 55 mais robusta (verifica comprimento)
-#   [5] Cabeçalho padrão Voxcorp Setup
-#   [6] Log em diretório protegido (/var/log/voxcorp-setup, 750/640)
+#   [5] Cabeçalho padrão Magnus Utilities
+#   [6] Log em diretório protegido (/var/log/magnus-utils, 750/640)
 #   [7] Standalone (sem dependência de common.sh)
 # =====================================================================
 
@@ -86,7 +86,7 @@ for ARG in "$@"; do
       DRY_RUN=1
       ;;
     --help|-h)
-      sed -n '/^# Voxcorp Setup/,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '/^# Magnus Utilities/,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -99,7 +99,7 @@ done
 # ---------------------------------------------------------------------
 # Diretório e arquivo de log com permissão restrita
 # ---------------------------------------------------------------------
-LOG_DIR="/var/log/voxcorp-setup"
+LOG_DIR="/var/log/magnus-utils"
 if [ ! -d "$LOG_DIR" ]; then
   mkdir -p "$LOG_DIR" || { echo "Não consegui criar $LOG_DIR. Rode como root."; exit 1; }
   chmod 750 "$LOG_DIR"
@@ -225,11 +225,11 @@ USER_INFO=$(mysql_run -N -e \
 ok "Usuário destino: $USER_INFO"
 
 echo ""
-read -p "  IP:PORTA de destino SIP (ex: 190.89.250.124:5060): " DESTINATION_IP_PORT
+read -p "  IP:PORTA de destino SIP (ex: 1.2.3.4:5060): " DESTINATION_IP_PORT
 [ -z "$DESTINATION_IP_PORT" ] && erro "IP:PORTA é obrigatório"
 
 [[ "$DESTINATION_IP_PORT" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+$ ]] \
-  || erro "Formato inválido. Use IP:PORTA (ex: 190.89.250.124:5060)"
+  || erro "Formato inválido. Use IP:PORTA (ex: 1.2.3.4:5060)"
 
 # ---------------------------------------------------------------------
 # Validação de alcance do destino SIP (NOVO em v4.0)

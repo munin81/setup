@@ -1,6 +1,6 @@
-# Voxcorp Setup
+# Magnus Utilities
 
-Coleção de scripts e procedimentos versionados que padronizam a instalação, customização, troubleshooting e manutenção de servidores **MagnusBilling 7.x sobre Debian 10/11** em operações de VoIP da Voxcorp.
+Coleção de scripts e procedimentos versionados que padronizam a instalação, customização, troubleshooting e manutenção de servidores **MagnusBilling 7.x sobre Debian 10/11** em operações de VoIP da Admin.
 
 ## Instalação Rápida (Interativa)
 

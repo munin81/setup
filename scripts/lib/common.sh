@@ -1,9 +1,9 @@
 #!/bin/bash
 # =====================================================================
-# Voxcorp Setup — Funções comuns e compartilhadas
+# Magnus Utilities — Funções comuns e compartilhadas
 # Versão: 1.0 (08/06/2026)
 # Função: Prover formatação, cores e funções úteis de validação
-# Autor: Voxcorp Telecom
+# Autor: Comunidade MagnusBilling
 # =====================================================================
 
 # Cores e logs padronizados

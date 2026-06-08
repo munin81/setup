@@ -1,6 +1,6 @@
-# Projeto: Voxcorp Setup
+# Projeto: Magnus Utilities
 
-**Owner:** Edgar (Voxcorp Telecom — EMB Serviços em Telecomunicações)
+**Owner:** Edgar (Comunidade MagnusBilling — EMB Serviços em Telecomunicações)
 **Tipo:** Repositório Git privado (preparado para futura abertura)
 **Estado:** Especificação inicial — junho 2026
 
@@ -10,12 +10,12 @@
 
 Coleção de scripts e procedimentos versionados que padronizam a instalação, customização, troubleshooting e manutenção de servidores **MagnusBilling 7.x sobre Debian 10/11** em operações de VoIP.
 
-O projeto consolida o conhecimento operacional acumulado pela equipe Voxcorp em produção, transformando-o em scripts auditáveis, reutilizáveis e idempotentes, que substituem procedimentos manuais propensos a erro.
+O projeto consolida o conhecimento operacional acumulado pela equipe Admin em produção, transformando-o em scripts auditáveis, reutilizáveis e idempotentes, que substituem procedimentos manuais propensos a erro.
 
 **Objetivos:**
 
 - Reduzir o tempo de provisionamento de um Magnus novo ou restaurado de horas para minutos.
-- Documentar e padronizar customizações Voxcorp em qualquer ambiente Magnus.
+- Documentar e padronizar customizações Admin em qualquer ambiente Magnus.
 - Detectar e corrigir desvios de configuração ("drift") em servidores existentes.
 - Servir de referência operacional auditável para outros administradores.
 - Preservar conhecimento histórico sobre bugs do Magnus 7.x e workarounds aplicados.
@@ -40,17 +40,17 @@ O projeto consolida o conhecimento operacional acumulado pela equipe Voxcorp em 
 | PHP | 7.3-fpm |
 | Firewall | firewalld (instalação oficial Magnus) |
 
-**Convenções de rede e SSH adotadas pela Voxcorp:**
+**Convenções de rede e SSH adotadas pela Admin:**
 
 - SSH apenas na porta **22022** (nunca 22).
-- Blocos IP autorizados: `190.89.250.0/24` e `186.194.49.0/24` (referência — devem ser parametrizáveis por servidor).
+- Blocos IP autorizados: `1.2.3.0/24` e `5.6.7.0/24` (referência — devem ser parametrizáveis por servidor).
 - IP de administração (VPN do operador): variável por instalação.
 
 ---
 
 ## 3. Inventário inicial de scripts
 
-Estes são os scripts que existem hoje no desktop do Edgar (`C:\Users\edgar\OneDrive\Voxcorp - Geral\DEVOPS\setup\`) e que entram no commit inicial:
+Estes são os scripts que existem hoje no desktop do Edgar (`C:\Users\edgar\OneDrive\Admin - Geral\DEVOPS\setup\`) e que entram no commit inicial:
 
 | Script | Função | Estado atual |
 |---|---|---|
@@ -61,13 +61,13 @@ Estes são os scripts que existem hoje no desktop do Edgar (`C:\Users\edgar\OneD
 
 **Ação para a IDE:** ler cada script, identificar duplicações, padronizar cabeçalho, comentários, funções comuns (`ok/warn/erro/titulo`).
 
-**Scripts a serem criados** (já mapeados como necessidade pela operação Voxcorp):
+**Scripts a serem criados** (já mapeados como necessidade pela operação Admin):
 
 | Script | Função | Prioridade |
 |---|---|---|
-| `voxcorp-pos-restauracao.sh` | Aplica as 17 customizações pós-restauração Voxcorp | Alta |
+| `magnus-pos-restauracao.sh` | Aplica as 17 customizações pós-restauração Admin | Alta |
 | `corrigir-permissoes-magnus.sh` | `chmod 664` em todos os `*_magnus*.conf` | Alta |
-| `liberar-dbeaver.sh` | Cria usuário MySQL externo (`voxcorp@IP`) + abre firewall | Alta |
+| `liberar-dbeaver.sh` | Cria usuário MySQL externo (`admin_user@IP`) + abre firewall | Alta |
 | `backup-magnus-diario.sh` | Backup `mysqldump` automatizado via cron | Média |
 | `migrar-banco-magnus.sh` | Versão enxuta para migração só de tabelas customizadas | Média |
 
@@ -76,14 +76,14 @@ Estes são os scripts que existem hoje no desktop do Edgar (`C:\Users\edgar\OneD
 ## 4. Estrutura proposta do repositório
 
 ```
-voxcorp-setup/
+magnus-utils/
 ├── README.md                          # Visão geral + quickstart
 ├── LICENSE                            # Decidir: MIT/Apache 2.0/proprietária
 ├── CHANGELOG.md                       # Versão e mudanças
 ├── .gitignore                         # node_modules, *.log, senhas, etc
 │
 ├── docs/
-│   ├── arquitetura-voxcorp.md         # Inventário 120/142/119, padrões SSH/firewall
+│   ├── arquitetura-admin_user.md         # Inventário 120/142/119, padrões SSH/firewall
 │   ├── customizacoes-pos-install.md   # As 17 customizações documentadas
 │   ├── bugs-magnus-conhecidos.md      # Catálogo de bugs + workarounds
 │   │                                  #   (truncamento char(20), permissão 644,
@@ -103,7 +103,7 @@ voxcorp-setup/
 │   │   └── magnus-health-check.sh     # v3
 │   │
 │   ├── instalacao/
-│   │   └── voxcorp-pos-restauracao.sh # Customizações Voxcorp
+│   │   └── magnus-pos-restauracao.sh # Customizações Admin
 │   │
 │   ├── manutencao/
 │   │   ├── corrigir-permissoes-magnus.sh
@@ -116,11 +116,11 @@ voxcorp-setup/
 │       └── restaurar-magnus.sh        # Migrado do desktop, v4.0
 │
 ├── configs/
-│   ├── firewalld/                     # Rich rules e direct rules padrão Voxcorp
+│   ├── firewalld/                     # Rich rules e direct rules padrão Admin
 │   ├── iptables/                      # Regras anti-scanner SIP
 │   ├── apache/                        # VirtualHosts modelo (com SSL Let's Encrypt)
 │   ├── asterisk/
-│   │   ├── extensions_custom.conf.tpl # Para feature codes Voxcorp
+│   │   ├── extensions_custom.conf.tpl # Para feature codes Admin
 │   │   └── inbound-cid-normalize.conf # Contexto de normalização CID Brasil
 │   └── cron/
 │       └── magnus-backup-diario.cron
@@ -138,10 +138,10 @@ voxcorp-setup/
 ```bash
 #!/bin/bash
 # =====================================================================
-# Voxcorp Setup — <nome do script>
+# Magnus Utilities — <nome do script>
 # Versão: X.Y (data)
 # Função: <uma linha do que faz>
-# Autor: Voxcorp Telecom
+# Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
 #   - <lista>
@@ -187,11 +187,11 @@ backup_arquivo() {
 - **Sem caracteres especiais em senhas geradas:** evitar `$ ! ' " \` (lição aprendida em 29/05).
 - **Read-only por padrão, com flag `--apply` para modificar:** scripts de diagnóstico mostram problemas mas não corrigem sem `--apply`.
 - **Validar pré-requisitos antes de modificar:** se algo falhar, sair sem efeitos colaterais (`set -e` ou checagem explícita).
-- **Log de execução:** scripts que modificam estado devem escrever em `/var/log/voxcorp-setup/<script>-<timestamp>.log`.
+- **Log de execução:** scripts que modificam estado devem escrever em `/var/log/magnus-utils/<script>-<timestamp>.log`.
 
 ---
 
-## 6. Padrões Voxcorp documentados
+## 6. Padrões Admin documentados
 
 Estes padrões devem ser respeitados por todos os scripts (vêm das memórias persistentes acumuladas):
 
@@ -200,14 +200,14 @@ Estes padrões devem ser respeitados por todos os scripts (vêm das memórias pe
 - Manter `dbhost = 127.0.0.1` em `res_config_mysql.conf` (padrão Magnus).
 - Garantir regra `iptables -A INPUT -i lo -j ACCEPT` antes de qualquer DROP.
 - Usuário PHP do Magnus: `mbillingUser@localhost` + `mbillingUser@127.0.0.1` (socket Unix e TCP loopback).
-- Usuários externos: `voxcorp@<IP_VPN>` (DBeaver, admin total), `apiuser@<IP_N8N>` (API, admin total).
+- Usuários externos: `admin_user@<IP_VPN>` (DBeaver, admin total), `apiuser@<IP_N8N>` (API, admin total).
 - Bug MariaDB 10.3: após `CREATE USER`, plugin pode ficar vazio. Sempre aplicar `ALTER USER ... IDENTIFIED VIA mysql_native_password USING PASSWORD('senha')` na sequência.
 
 **Firewall:**
 
 - firewalld é padrão (vem com o instalador oficial Magnus). Não migrar para iptables puro.
 - Zona public default-deny (`REJECT icmp-host-prohibited` no final).
-- Portas liberadas: SSH 22022 (só blocos Voxcorp), MySQL 3306 (só blocos Voxcorp), HTTP 80, HTTPS 443, SIP UDP 5060, RTP UDP 10000-60000, IAX UDP 4569 (opcional).
+- Portas liberadas: SSH 22022 (só blocos Admin), MySQL 3306 (só blocos Admin), HTTP 80, HTTPS 443, SIP UDP 5060, RTP UDP 10000-60000, IAX UDP 4569 (opcional).
 - Anti-scanner SIP via direct rules: DROP `friendly-scanner` e `VaxSIPUserAgent` em 5060/5080 TCP+UDP.
 - Fail2ban integrado (jails `sshd` e `asterisk-iptables`).
 
@@ -220,7 +220,7 @@ Estes padrões devem ser respeitados por todos os scripts (vêm das memórias pe
   `iax_magnus*.conf` (3 arquivos), `queues_magnus.conf`,
   `extensions_magnus.conf`, `extensions_magnus_did.conf`,
   `musiconhold_magnus.conf`, `voicemail_magnus.conf`.
-- Customizações de dialplan devem ir em `extensions_custom.conf` separado (criado pela Voxcorp e incluído via `#include` no `extensions.conf`), nunca em `extensions_magnus.conf` (que o Magnus sobrescreve).
+- Customizações de dialplan devem ir em `extensions_custom.conf` separado (criado pela Admin e incluído via `#include` no `extensions.conf`), nunca em `extensions_magnus.conf` (que o Magnus sobrescreve).
 
 **Estados do Magnus (`pkg_user.active`):**
 
@@ -241,7 +241,7 @@ Estes padrões devem ser respeitados por todos os scripts (vêm das memórias pe
 
 **Milestone 1 — Fundação (semana 1)**
 
-- Criar repositório `voxcorp-setup` no GitHub (privado).
+- Criar repositório `magnus-utils` no GitHub (privado).
 - Commit inicial com README, LICENSE, estrutura de pastas.
 - Migrar os 4 scripts atuais do desktop para `scripts/`.
 - Criar `scripts/lib/common.sh` com funções padronizadas.
@@ -249,7 +249,7 @@ Estes padrões devem ser respeitados por todos os scripts (vêm das memórias pe
 
 **Milestone 2 — Documentação base (semana 2)**
 
-- `docs/arquitetura-voxcorp.md` com inventário e padrões.
+- `docs/arquitetura-admin_user.md` com inventário e padrões.
 - `docs/bugs-magnus-conhecidos.md` com os 4 bugs catalogados.
 - `docs/customizacoes-pos-install.md` (lista das 17 customizações).
 - Runbook do `magnus-health-check.sh` (interpretação dos outputs).
@@ -258,7 +258,7 @@ Estes padrões devem ser respeitados por todos os scripts (vêm das memórias pe
 
 - `corrigir-permissoes-magnus.sh` (com `--check` e `--apply`).
 - `liberar-dbeaver.sh` (parametrizado por IP do operador).
-- `voxcorp-pos-restauracao.sh` (aplica padrões em servidor recém instalado).
+- `magnus-pos-restauracao.sh` (aplica padrões em servidor recém instalado).
 
 **Milestone 4 — Refinamentos (futuro)**
 
@@ -281,7 +281,7 @@ Quando trabalhar neste projeto, o agente deve:
 6. **Diagnóstico antes de correção:** seguir o padrão do `magnus-health-check.sh` (read-only por padrão, flag `--apply` para corrigir).
 7. **Documentar bugs descobertos no Magnus** em `docs/bugs-magnus-conhecidos.md` quando aparecerem.
 8. **Não rodar scripts em servidores reais sem explicitamente perguntar** se há janela de manutenção e backup feito.
-9. **Linguagem do código e comentários: português (pt-BR)** — alinhado com a equipe Voxcorp e a comunidade Magnus brasileira.
+9. **Linguagem do código e comentários: português (pt-BR)** — alinhado com a equipe Admin e a comunidade Magnus brasileira.
 10. **Commits semânticos:** `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`.
 
 ---
@@ -290,20 +290,20 @@ Quando trabalhar neste projeto, o agente deve:
 
 Considera-se Milestone 1 concluído quando:
 
-- [ ] Repositório criado no GitHub do Edgar/Voxcorp (privado).
+- [ ] Repositório criado no GitHub do Edgar/Admin (privado).
 - [ ] README.md explica o projeto e quickstart.
 - [ ] 4 scripts originais migrados para a estrutura, com cabeçalho padronizado.
 - [ ] `scripts/lib/common.sh` criado e funcional.
 - [ ] `magnus-health-check.sh` v3 rodando idêntico ao atual mas usando `common.sh`.
 - [ ] `.gitignore` cobrindo arquivos sensíveis (`*.log`, senhas, `.bak.*`).
 - [ ] LICENSE escolhida.
-- [ ] Edgar consegue clonar em qualquer servidor Voxcorp e rodar `bash scripts/diagnostico/magnus-health-check.sh` sem ajustes.
+- [ ] Edgar consegue clonar em qualquer servidor Admin e rodar `bash scripts/diagnostico/magnus-health-check.sh` sem ajustes.
 
 ---
 
 **Próximos passos imediatos para o Edgar:**
 
-1. Criar o repositório no GitHub com nome `voxcorp-setup` (privado).
+1. Criar o repositório no GitHub com nome `magnus-utils` (privado).
 2. Clonar localmente.
 3. Anexar os 3 scripts não revistos no chat (`alterar_bloco_did.sh`, `deletar_cdr_oferta.sh`, `restaurar_magnus.sh`) para análise individual e padronização.
-4. Decidir licença (sugestão inicial: proprietária com nota "uso interno Voxcorp" até decidir abrir).
+4. Decidir licença (sugestão inicial: proprietária com nota "uso interno Admin" até decidir abrir).

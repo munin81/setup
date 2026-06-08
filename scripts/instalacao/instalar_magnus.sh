@@ -1,9 +1,9 @@
 #!/bin/bash
 # =====================================================================
-# Voxcorp Setup — Instalar MagnusBilling
+# Magnus Utilities — Instalar MagnusBilling
 # Versão: 1.0 (08/06/2026)
 # Função: Baixar e executar o script de instalação oficial do MagnusBilling 7
-# Autor: Voxcorp Telecom
+# Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
 #   - Servidor Debian 10/11 recém-instalado (limpo)

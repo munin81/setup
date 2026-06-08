@@ -1,19 +1,19 @@
 #!/bin/bash
 # =====================================================================
-# Voxcorp Setup — Menu de Ferramentas (Entrypoint)
+# Magnus Utilities — Menu de Ferramentas (Entrypoint)
 # Versão: 1.0 (08/06/2026)
 # Função: Script inicial estilo menu interativo (curl | bash)
-# Autor: Voxcorp Telecom
+# Autor: Comunidade MagnusBilling
 # =====================================================================
 
 # Verifica se o diretório do projeto já existe
-PROJECT_DIR="/opt/voxcorp-setup"
+PROJECT_DIR="/opt/magnus-utils"
 REPO_URL="https://github.com/munin81/setup.git" # Repositório no GitHub
 
 # Se quiser fazer um "auto-update" rápido antes de rodar o menu:
 # Se o script está rodando direto do curl, ele pode clonar para /opt
 if [ ! -d "$PROJECT_DIR" ]; then
-    echo "Instalando Voxcorp Setup em $PROJECT_DIR..."
+    echo "Instalando Magnus Utilities em $PROJECT_DIR..."
     # git clone "$REPO_URL" "$PROJECT_DIR" &>/dev/null
     # Se não tiver o repositório hospedado, o código abaixo assume que estamos no diretório correto:
     PROJECT_DIR="$(pwd)"
@@ -42,7 +42,7 @@ show_menu() {
     echo "                                 | |                         | |    "
     echo "                                 |_|                         |_|    "
     echo -e "${NC}"
-    echo -e "Bem-vindo ao ${NEGRITO}Voxcorp Setup${NC} - Utilitários MagnusBilling 7.x"
+    echo -e "Bem-vindo ao ${NEGRITO}Magnus Utilities${NC} - Utilitários MagnusBilling 7.x"
     echo "------------------------------------------------------------------"
     echo "Selecione uma ferramenta:"
     echo "1. Diagnóstico Geral (Health Check)"
@@ -80,7 +80,7 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         5)
-            bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus-voxcorp_136.sh"
+            bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus-magnus_136.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

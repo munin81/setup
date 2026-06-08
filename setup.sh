@@ -45,8 +45,8 @@ show_menu() {
     echo -e "Bem-vindo ao ${NEGRITO}Voxcorp Setup${NC} - Utilitários MagnusBilling 7.x"
     echo "------------------------------------------------------------------"
     echo "Selecione uma ferramenta:"
-    echo "1. Magnus Health Check (Diagnóstico Read-Only)"
-    echo "2. Restaurar Magnus (Migração)"
+    echo "1. Diagnóstico Geral (Health Check)"
+    echo "2. Migração Completa de MagnusBilling"
     echo "3. Alterar Bloco DID (Manutenção)"
     echo "4. Deletar CDR / Oferta (Manutenção)"
     echo "5. Ajustar regras de Firewall/IPtables (Instalação)"
@@ -65,8 +65,7 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         2)
-            # Como você tem dois scripts com o mesmo nome, vou apontar para o que for principal.
-            bash "$PROJECT_DIR/scripts/migracao/restaurar_magnus.sh"
+            bash "$PROJECT_DIR/scripts/migracao/migrar_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

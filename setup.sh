@@ -13,13 +13,10 @@ REPO_URL="https://github.com/munin81/setup.git" # Repositório no GitHub
 # Se quiser fazer um "auto-update" rápido antes de rodar o menu:
 # Se o script está rodando direto do curl, ele pode clonar para /opt
 if [ ! -d "$PROJECT_DIR" ]; then
-    echo "Instalando Magnus Utilities em $PROJECT_DIR..."
-    # git clone "$REPO_URL" "$PROJECT_DIR" &>/dev/null
-    # Se não tiver o repositório hospedado, o código abaixo assume que estamos no diretório correto:
-    PROJECT_DIR="$(pwd)"
+    echo "Baixando Magnus Utilities de $REPO_URL para $PROJECT_DIR..."
+    git clone "$REPO_URL" "$PROJECT_DIR" >/dev/null 2>&1
 else
-    # cd "$PROJECT_DIR" && git pull origin main &>/dev/null
-    PROJECT_DIR="$(pwd)"
+    cd "$PROJECT_DIR" && git pull origin main >/dev/null 2>&1
 fi
 
 # Tenta importar common.sh
@@ -80,7 +77,7 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         5)
-            bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus-magnus_136.sh"
+            bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

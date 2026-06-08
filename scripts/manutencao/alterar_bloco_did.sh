@@ -1,4 +1,3 @@
-cat > /root/alterar_bloco_did_v4.sh << 'VOXCORP_EOF'
 #!/bin/bash
 # =====================================================================
 # Voxcorp Setup — alterar_bloco_did.sh
@@ -413,11 +412,3 @@ else
   info "Consulte o log para diagnóstico: $LOG_FILE"
   exit 1
 fi
-VOXCORP_EOF
-
-chmod +x /root/alterar_bloco_did_v4.sh
-echo ""
-echo "✓ Arquivo criado: /root/alterar_bloco_did_v4.sh"
-echo ""
-bash -n /root/alterar_bloco_did_v4.sh && echo "✓ Sintaxe OK" || echo "✗ Erro de sintaxe"
-wc -l /root/alterar_bloco_did_v4.sh

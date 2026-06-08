@@ -1,0 +1,20 @@
+# Logs
+*.log
+*.bak.*
+.bash_history
+
+# Credentials / Secrets
+*password*
+*.env
+*.pem
+*.key
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Node/Python
+node_modules/
+__pycache__/

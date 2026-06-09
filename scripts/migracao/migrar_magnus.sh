@@ -1,6 +1,6 @@
 #!/bin/bash
 # =====================================================================
-# Voxcorp Setup — migrar_magnus.sh
+# Magnus Utilities — migrar_magnus.sh
 # Versão: 5.2.1 (08 de junho de 2026)
 # Mudança v5.2 → v5.2.1:
 #   - Fase 2: pergunta separadamente nome+IP do usuário admin (DBeaver)
@@ -11,7 +11,7 @@
 # =====================================================================
 # Função: Migração de dados de MagnusBilling entre servidores
 #         (banco + Asterisk configs + sons + customizações + restart)
-# Autor: Voxcorp Telecom (EMB Serviços em Telecomunicações)
+# Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
 #   - Rodar no servidor DESTINO como root
@@ -34,14 +34,14 @@
 #   6.  Captura /etc/asterisk/ da origem
 #   7.  Captura /var/lib/asterisk/sounds/ da origem
 #   8.  Aplicação no destino (parar serviços, importar banco, aplicar configs)
-#   9.  Customizações de BANCO (mbillingUser, voxcorp@IP, runtime, pkg_firewall)
+#   9.  Customizações de BANCO (mbillingUser, admin_user@IP, runtime, pkg_firewall)
 #   10. Validação de dados (banco + permissões, SEM tocar nos serviços)
 #   11. Resumo da migração de dados
 #   12. Reinício dos serviços (com confirmação) — NOVO na v5.2
 #   13. Validação final pós-restart (HTTP, Asterisk, peers) — NOVO na v5.2
 #
 # ESCOPO REMOVIDO (vs v5.0):
-#   - Configuração de firewall (script separado: configurar_firewalld_voxcorp.sh)
+#   - Configuração de firewall (script separado: configurar_firewalld_admin_user.sh)
 #   - Apache VirtualHost / SSL Let's Encrypt (script separado)
 #   - Cron / logrotate / backup diário / página bloqueada (script separado)
 #
@@ -115,7 +115,7 @@ for ARG in "$@"; do
     --dry-run) DRY_RUN=1 ;;
     --no-restart) NO_RESTART=1 ;;
     --help|-h)
-      sed -n '/^# Voxcorp Setup/,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '/^# Magnus Utilities/,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) echo "Opção desconhecida: $ARG"; exit 1 ;;
@@ -125,7 +125,7 @@ done
 # ---------------------------------------------------------------------
 # Diretório e log
 # ---------------------------------------------------------------------
-LOG_DIR="/var/log/voxcorp-setup"
+LOG_DIR="/var/log/magnus-utils"
 mkdir -p "$LOG_DIR" || erro "Sem permissão em $LOG_DIR — rode como root"
 chmod 750 "$LOG_DIR"
 LOG_FILE="$LOG_DIR/migrar-magnus-$(date +%Y%m%d_%H%M%S).log"
@@ -192,8 +192,8 @@ read -sp "  Senha SSH origem: " ORIGEM_PASS; echo ""
 
 echo ""
 info "Usuário ADMIN do MySQL (para DBeaver):"
-read -p "  Nome do usuário admin [voxcorp]: " ADMIN_USER
-ADMIN_USER=${ADMIN_USER:-voxcorp}
+read -p "  Nome do usuário admin [admin_user]: " ADMIN_USER
+ADMIN_USER=${ADMIN_USER:-admin_user}
 read -p "  IP de origem (para criar $ADMIN_USER@IP): " ADMIN_IP
 [ -z "$ADMIN_IP" ] && erro "IP admin é obrigatório"
 
@@ -222,7 +222,7 @@ echo "  ADMIN MySQL:  $ADMIN_USER@$ADMIN_IP"
 echo "  Parar origem: $([ "$PARAR_ORIGEM" = "1" ] && echo "SIM" || echo "NÃO")"
 echo ""
 warn "Esta operação SUBSTITUI o banco e configs Asterisk do destino pelos dados da origem."
-warn "Tabelas customizadas Voxcorp (pkg_password_reset, pkg_tickets, pkg_ticket_messages) virão da origem."
+warn "Tabelas customizadas Admin (pkg_password_reset, pkg_tickets, pkg_ticket_messages) virão da origem."
 warn "Firewall e SSL NÃO serão configurados — use scripts separados depois."
 echo ""
 confirma "Confirma todos os parâmetros acima?"
@@ -256,7 +256,7 @@ fi
 # =====================================================================
 titulo "FASE 4/13 — Backup do estado atual do destino"
 
-BACKUP_DIR="/root/voxcorp-backup-pre-migracao-$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="/root/magnus-backup-pre-migracao-$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
@@ -367,9 +367,9 @@ chown -R asterisk:asterisk /var/lib/asterisk/sounds/
 ok "Sons aplicados"
 
 # =====================================================================
-# FASE 9 — CUSTOMIZAÇÕES DE BANCO (Voxcorp)
+# FASE 9 — CUSTOMIZAÇÕES DE BANCO (Admin)
 # =====================================================================
-titulo "FASE 9/13 — Customizações de banco Voxcorp"
+titulo "FASE 9/13 — Customizações de banco Admin"
 
 # 1) Confirmar dbhost preservado
 DBHOST_ATUAL=$(grep "^dbhost" /etc/asterisk/res_config_mysql.conf | awk -F= '{print $2}' | tr -d ' ')
@@ -389,7 +389,7 @@ mysql_local -e "
 " 2>/dev/null
 ok "mbillingUser criado/atualizado com senha do res_config_mysql.conf"
 
-# 3) Validar tabelas customizadas Voxcorp
+# 3) Validar tabelas customizadas Admin
 for T in pkg_password_reset pkg_tickets pkg_ticket_messages; do
   EXISTS=$(mysql_local mbilling -N -e "SHOW TABLES LIKE '$T';" 2>/dev/null)
   [ -n "$EXISTS" ] && ok "Tabela customizada $T: presente" || warn "Tabela customizada $T: AUSENTE"
@@ -611,10 +611,10 @@ echo "  2. Rodar health check completo:"
 echo "       bash /root/magnus-health-check.sh"
 echo ""
 echo "  3. Configurar firewall (script separado):"
-echo "       bash /root/configurar_firewalld_voxcorp.sh"
+echo "       bash /root/configurar_firewalld_admin_user.sh"
 echo ""
 echo "  4. Configurar Apache VirtualHost + SSL (script separado):"
-echo "       bash /root/configurar_ssl_voxcorp.sh"
+echo "       bash /root/configurar_ssl_admin_user.sh"
 echo ""
 echo "  5. Configurar cron, backup diário, logrotate (script separado):"
 echo "       bash /root/configurar_seguranca_diaria.sh"

@@ -1,45 +1,48 @@
 #!/bin/bash
 # =====================================================================
-# Magnus Utilities — migrar_magnus.sh
-# Versão: 5.0 (08 de junho de 2026)
-# Função: Migração completa de MagnusBilling entre servidores
-#         (cenário base: 136 → 119, mas parametrizável)
-# Autor: Comunidade MagnusBilling
+# Voxcorp Setup — migrar_magnus.sh
+# Versão: 5.1 (08 de junho de 2026)
+# Função: Migração de dados de MagnusBilling entre servidores
+#         (banco + Asterisk configs + sons + customizações de banco)
+# Autor: Voxcorp Telecom (EMB Serviços em Telecomunicações)
 #
 # Pré-requisitos:
-#   - Rodar no servidor DESTINO (alvo da migração) como root
-#   - Servidor destino com Magnus 7.x já instalado (instalação limpa)
+#   - Rodar no servidor DESTINO como root
+#   - Magnus 7.x já instalado no destino
 #   - SSH para origem na porta 22022 com IP autorizado
-#   - sshpass, rsync, mysqldump instalados (script instala se faltar)
+#   - sshpass, rsync, mysqldump (script instala se faltar)
 #
 # Uso:
 #   bash migrar_magnus.sh                # interativo
-#   bash migrar_magnus.sh --dry-run      # simula, mostra ações e sai
-#   bash migrar_magnus.sh --help         # mostra ajuda
+#   bash migrar_magnus.sh --dry-run      # mostra plano e sai
+#   bash migrar_magnus.sh --help         # ajuda
 #
-# Fluxo (16 fases):
-#   1.  Validação de pré-requisitos no destino
-#   2.  Coleta de parâmetros (IPs, senhas, domínio, SSL, parar serviços)
-#   3.  Teste SSH com origem
-#   4.  Backup do estado atual do destino (rollback)
-#   5.  Captura banco da origem (mysqldump via SSH)
-#   6.  Captura /etc/asterisk/ da origem (rsync)
-#   7.  Captura /var/lib/asterisk/sounds/ da origem (rsync)
-#   8.  Aplicação no destino: parar serviços, importar banco, ajustar configs
-#   9.  Customizações Admin — Banco (17 itens parte 1)
-#   10. Customizações Admin — Segurança / firewalld
-#   11. Customizações Admin — DNS / SSL
-#   12. Customizações Admin — Cron / Logrotate / Backup
-#   13. Customizações Admin — Página de acesso bloqueado
-#   14. Reinicialização ordenada dos serviços
-#   15. Validação final
-#   16. Resumo e próximos passos
+# Fluxo (11 fases — escopo enxuto):
+#   1.  Validação no destino
+#   2.  Coleta de parâmetros (IPs, senhas, IP_VPN_ADMIN)
+#   3.  Teste SSH com origem + comparação de versões
+#   4.  Backup pré-migração do destino (rollback)
+#   5.  Captura do banco da origem
+#   6.  Captura /etc/asterisk/ da origem
+#   7.  Captura /var/lib/asterisk/sounds/ da origem
+#   8.  Aplicação no destino (parar serviços, importar banco, aplicar configs)
+#   9.  Customizações de BANCO (mbillingUser, voxcorp@IP, runtime, pkg_firewall)
+#   10. Validação básica de dados (não reinicia serviços)
+#   11. Resumo + próximos passos
 #
-# Idempotência: PARCIAL (etapas Admin são idempotentes; importação banco NÃO)
-# Modifica estado: SIM (massivamente — vide fases 8 em diante)
-# Requer janela de manutenção: SIM (parar serviços no destino é obrigatório)
+# ESCOPO REMOVIDO (vs v5.0):
+#   - Configuração de firewall (será script separado: configurar_iptables_voxcorp.sh)
+#   - Apache VirtualHost / SSL Let's Encrypt (script separado: configurar_ssl_voxcorp.sh)
+#   - Cron / logrotate / backup diário / página bloqueada
+#     (script separado: configurar_seguranca_diaria.sh)
+#   - Reinicialização de serviços (manual após confirmar tudo OK)
 #
-# NÃO ROUDA update.sh automaticamente (decisão Edgar 08/06/2026).
+# Idempotência: PARCIAL (importação do banco NÃO é, customizações SIM)
+# Modifica estado: SIM (banco + /etc/asterisk + /var/lib/asterisk + senhas MySQL)
+# Requer janela de manutenção: SIM (para Apache+Asterisk no destino)
+#
+# NÃO RODA update.sh automaticamente.
+# NÃO MEXE em firewall / iptables / firewalld.
 # =====================================================================
 
 set -o pipefail
@@ -50,7 +53,7 @@ set -o pipefail
 VERDE='\033[0;32m'; AMARELO='\033[1;33m'; VERMELHO='\033[0;31m'
 AZUL='\033[0;34m'; NEGRITO='\033[1m'; NC='\033[0m'
 
-LOG_FILE=""  # definido depois
+LOG_FILE=""
 
 ok()    { echo -e "  ${VERDE}✓${NC} $1" | tee -a "${LOG_FILE:-/dev/null}"; }
 info()  { echo -e "  ${AZUL}➜${NC} $1" | tee -a "${LOG_FILE:-/dev/null}"; }
@@ -96,7 +99,7 @@ for ARG in "$@"; do
   case "$ARG" in
     --dry-run) DRY_RUN=1 ;;
     --help|-h)
-      sed -n '/^# Magnus Utilities/,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '/^# Voxcorp Setup/,/^# ===/p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) echo "Opção desconhecida: $ARG"; exit 1 ;;
@@ -106,7 +109,7 @@ done
 # ---------------------------------------------------------------------
 # Diretório e log
 # ---------------------------------------------------------------------
-LOG_DIR="/var/log/magnus-utils"
+LOG_DIR="/var/log/voxcorp-setup"
 mkdir -p "$LOG_DIR" || erro "Sem permissão em $LOG_DIR — rode como root"
 chmod 750 "$LOG_DIR"
 LOG_FILE="$LOG_DIR/migrar-magnus-$(date +%Y%m%d_%H%M%S).log"
@@ -114,16 +117,18 @@ touch "$LOG_FILE"
 chmod 640 "$LOG_FILE"
 
 clear
-titulo "MIGRAÇÃO COMPLETA MAGNUSBILLING (v5.0)"
+titulo "MIGRAÇÃO DE DADOS MAGNUSBILLING (v5.1)"
 info "Servidor DESTINO: $(hostname) ($(hostname -I | awk '{print $1}'))"
 info "Data/hora:        $(date '+%Y-%m-%d %H:%M:%S')"
 info "Log:              $LOG_FILE"
+echo ""
+warn "Este script NÃO mexe em firewall/SSL/cron. Use scripts separados depois."
 [ $DRY_RUN -eq 1 ] && warn "MODO DRY-RUN ATIVO — nada será modificado"
 
 # =====================================================================
 # FASE 1 — VALIDAÇÃO DE PRÉ-REQUISITOS NO DESTINO
 # =====================================================================
-titulo "FASE 1/16 — Validação de pré-requisitos no destino"
+titulo "FASE 1/11 — Validação de pré-requisitos no destino"
 
 [ "$EUID" -ne 0 ] && erro "Rode como root"
 
@@ -132,19 +137,16 @@ for CMD in mysql rsync ssh systemctl; do
 done
 ok "Comandos básicos OK"
 
-# sshpass pode faltar
 if ! command -v sshpass >/dev/null 2>&1; then
   info "Instalando sshpass..."
   apt-get install -y sshpass >/dev/null 2>&1 || erro "Falha ao instalar sshpass"
   ok "sshpass instalado"
 fi
 
-# Confirmar que Magnus está instalado no destino
 [ ! -d "/var/www/html/mbilling" ] && erro "Magnus não está instalado em /var/www/html/mbilling no destino"
 [ ! -f "/etc/asterisk/sip.conf" ] && erro "Asterisk não está instalado no destino"
 ok "Magnus e Asterisk presentes no destino"
 
-# Senha root MySQL
 if [ -f "/root/passwordMysql.log" ]; then
   SENHA_ROOT_LOCAL=$(cat /root/passwordMysql.log | tr -d '[:space:]')
   ok "Senha root MySQL lida de /root/passwordMysql.log"
@@ -160,7 +162,7 @@ ok "Conexão MySQL local OK"
 # =====================================================================
 # FASE 2 — COLETA DE PARÂMETROS
 # =====================================================================
-titulo "FASE 2/16 — Parâmetros da migração"
+titulo "FASE 2/11 — Parâmetros da migração"
 
 echo ""
 info "Servidor de ORIGEM (de onde vamos copiar):"
@@ -172,36 +174,28 @@ read -sp "  Senha SSH origem: " ORIGEM_PASS; echo ""
 [ -z "$ORIGEM_IP" ] || [ -z "$ORIGEM_PASS" ] && erro "IP e senha de origem são obrigatórios"
 
 echo ""
-info "Configurações do destino:"
-read -p "  Domínio para este servidor (vazio = só IP): " DOMINIO_DESTINO
-read -p "  IP da VPN do administrador (para liberar MySQL/SSH): " IP_VPN_ADMIN
-[ -z "$IP_VPN_ADMIN" ] && erro "IP da VPN é obrigatório (para liberar DBeaver e SSH)"
-
-echo ""
-info "SSL/HTTPS:"
-echo "  [1] Gerar SSL novo via Let's Encrypt (precisa domínio + porta 80 acessível)"
-echo "  [2] Pular SSL agora (configurar depois)"
-read -p "  Escolha [2]: " SSL_OPCAO; SSL_OPCAO=${SSL_OPCAO:-2}
+info "Acesso administrativo MySQL externo (DBeaver):"
+read -p "  IP da VPN do administrador (para criar voxcorp@IP): " IP_VPN_ADMIN
+[ -z "$IP_VPN_ADMIN" ] && erro "IP da VPN é obrigatório"
 
 echo ""
 info "Parar serviços na origem durante a captura?"
-echo "  [1] SIM — parar Asterisk e Apache na origem (dump consistente, recomendado)"
-echo "  [2] NÃO — manter origem rodando (mais rápido, mas risco de inconsistência)"
+echo "  [1] SIM — parar Apache na origem (dump consistente, recomendado)"
+echo "  [2] NÃO — manter origem rodando (mais rápido)"
 read -p "  Escolha [1]: " PARAR_ORIGEM; PARAR_ORIGEM=${PARAR_ORIGEM:-1}
 
 # Resumo
 echo ""
 titulo "RESUMO DA MIGRAÇÃO"
 echo ""
-echo "  ORIGEM:    $ORIGEM_USER@$ORIGEM_IP:$ORIGEM_PORT"
-echo "  DESTINO:   $(hostname) ($(hostname -I | awk '{print $1}'))"
-echo "  Domínio:   ${DOMINIO_DESTINO:-(somente IP)}"
-echo "  IP VPN:    $IP_VPN_ADMIN"
-echo "  SSL:       $([ "$SSL_OPCAO" = "1" ] && echo "Gerar via Let's Encrypt" || echo "Pular")"
+echo "  ORIGEM:       $ORIGEM_USER@$ORIGEM_IP:$ORIGEM_PORT"
+echo "  DESTINO:      $(hostname) ($(hostname -I | awk '{print $1}'))"
+echo "  IP VPN admin: $IP_VPN_ADMIN"
 echo "  Parar origem: $([ "$PARAR_ORIGEM" = "1" ] && echo "SIM" || echo "NÃO")"
 echo ""
-warn "Esta operação SUBSTITUI completamente o Magnus do destino pelos dados da origem."
-warn "Tabelas customizadas Admin (pkg_password_reset, pkg_tickets, pkg_ticket_messages) virão da origem."
+warn "Esta operação SUBSTITUI o banco e configs Asterisk do destino pelos dados da origem."
+warn "Tabelas customizadas Voxcorp (pkg_password_reset, pkg_tickets, pkg_ticket_messages) virão da origem."
+warn "Firewall e SSL NÃO serão configurados — use scripts separados depois."
 echo ""
 confirma "Confirma todos os parâmetros acima?"
 
@@ -213,9 +207,9 @@ fi
 # =====================================================================
 # FASE 3 — TESTE SSH COM ORIGEM
 # =====================================================================
-titulo "FASE 3/16 — Conexão SSH com origem"
+titulo "FASE 3/11 — Conexão SSH com origem"
 
-ssh_origem "echo OK" >/dev/null 2>&1 || erro "Falha SSH com $ORIGEM_IP:$ORIGEM_PORT (verifique IP, porta, senha)"
+ssh_origem "echo OK" >/dev/null 2>&1 || erro "Falha SSH com $ORIGEM_IP:$ORIGEM_PORT"
 ok "SSH com origem OK"
 
 ORIGEM_MAGNUS_VER=$(ssh_origem "mysql mbilling -N -e \"SELECT config_value FROM pkg_configuration WHERE config_key='version';\" 2>/dev/null" | tr -d '[:space:]')
@@ -230,11 +224,11 @@ if [ "$ORIGEM_MAGNUS_VER" != "$DESTINO_MAGNUS_VER" ] && [ -n "$ORIGEM_MAGNUS_VER
 fi
 
 # =====================================================================
-# FASE 4 — BACKUP DO ESTADO ATUAL DO DESTINO (rollback)
+# FASE 4 — BACKUP PRÉ-MIGRAÇÃO DO DESTINO (rollback)
 # =====================================================================
-titulo "FASE 4/16 — Backup do estado atual do destino"
+titulo "FASE 4/11 — Backup do estado atual do destino"
 
-BACKUP_DIR="/root/magnus-backup-pre-migracao-$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="/root/voxcorp-backup-pre-migracao-$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
@@ -247,20 +241,16 @@ info "Backup de /etc/asterisk..."
 tar czf "$BACKUP_DIR/etc-asterisk-antes.tar.gz" /etc/asterisk 2>/dev/null
 ok "Asterisk config salvo"
 
-info "Backup de configs Apache + firewalld..."
-tar czf "$BACKUP_DIR/configs-sistema.tar.gz" /etc/apache2 /etc/firewalld 2>/dev/null
-ok "Configs sistema salvas"
-
 info "Backup completo em: $BACKUP_DIR"
 
 # =====================================================================
 # FASE 5 — CAPTURA DO BANCO DA ORIGEM
 # =====================================================================
-titulo "FASE 5/16 — Captura do banco da origem"
+titulo "FASE 5/11 — Captura do banco da origem"
 
 if [ "$PARAR_ORIGEM" = "1" ]; then
-  info "Parando Apache na origem..."
-  ssh_origem "systemctl stop apache2 2>/dev/null || systemctl stop httpd 2>/dev/null" || warn "Não consegui parar Apache na origem"
+  info "Parando Apache na origem (Asterisk continua para não derrubar chamadas)..."
+  ssh_origem "systemctl stop apache2 2>/dev/null || systemctl stop httpd 2>/dev/null"
   ok "Apache origem parado"
 fi
 
@@ -269,13 +259,12 @@ ssh_origem "mysqldump --routines --triggers --events --single-transaction --quic
 SIZE=$(du -h "$BACKUP_DIR/mbilling-origem.sql.gz" | cut -f1)
 ok "Dump da origem capturado ($SIZE)"
 
-# Verificar que o dump não está vazio
 [ ! -s "$BACKUP_DIR/mbilling-origem.sql.gz" ] && erro "Dump da origem ficou vazio — abortando"
 
 # =====================================================================
 # FASE 6 — CAPTURA DE /etc/asterisk DA ORIGEM
 # =====================================================================
-titulo "FASE 6/16 — Captura de /etc/asterisk/ da origem"
+titulo "FASE 6/11 — Captura de /etc/asterisk/ da origem"
 
 info "Sincronizando /etc/asterisk/..."
 mkdir -p /tmp/migracao-origem/etc-asterisk
@@ -285,14 +274,14 @@ ok "Configs Asterisk da origem em /tmp/migracao-origem/etc-asterisk/"
 # =====================================================================
 # FASE 7 — CAPTURA DE /var/lib/asterisk/sounds DA ORIGEM
 # =====================================================================
-titulo "FASE 7/16 — Captura de /var/lib/asterisk/sounds/ da origem"
+titulo "FASE 7/11 — Captura de /var/lib/asterisk/sounds/ da origem"
 
 info "Sincronizando /var/lib/asterisk/sounds/..."
 mkdir -p /tmp/migracao-origem/sounds
 rsync_origem "/var/lib/asterisk/sounds/" "/tmp/migracao-origem/sounds/" >/dev/null 2>&1 || warn "Algumas falhas durante rsync de sounds"
 ok "Sons capturados"
 
-# Religar origem se foi parada
+# Religar Apache na origem
 if [ "$PARAR_ORIGEM" = "1" ]; then
   info "Religando Apache na origem..."
   ssh_origem "systemctl start apache2 2>/dev/null || systemctl start httpd 2>/dev/null"
@@ -302,9 +291,9 @@ fi
 # =====================================================================
 # FASE 8 — APLICAÇÃO NO DESTINO
 # =====================================================================
-titulo "FASE 8/16 — Aplicação no destino"
+titulo "FASE 8/11 — Aplicação no destino"
 
-info "Parando serviços no destino..."
+info "Parando serviços no destino (Apache + Asterisk)..."
 systemctl stop apache2 2>/dev/null
 systemctl stop asterisk 2>/dev/null
 ok "Apache e Asterisk parados no destino"
@@ -312,7 +301,7 @@ ok "Apache e Asterisk parados no destino"
 info "Importando banco da origem..."
 mysql_local -e "DROP DATABASE IF EXISTS mbilling; CREATE DATABASE mbilling CHARACTER SET utf8 COLLATE utf8_general_ci;"
 zcat "$BACKUP_DIR/mbilling-origem.sql.gz" | MYSQL_PWD="$SENHA_ROOT_LOCAL" mysql --user=root mbilling
-[ $? -ne 0 ] && erro "Falha ao importar banco — execute rollback manual com $BACKUP_DIR/mbilling-destino-antes.sql"
+[ $? -ne 0 ] && erro "Falha ao importar banco — rollback com: mysql mbilling < $BACKUP_DIR/mbilling-destino-antes.sql"
 ok "Banco importado da origem"
 
 info "Aplicando /etc/asterisk/ da origem..."
@@ -323,82 +312,7 @@ cp /tmp/res_config_mysql.conf.destino /etc/asterisk/res_config_mysql.conf 2>/dev
 chown -R asterisk:asterisk /etc/asterisk/
 ok "Asterisk config aplicada (res_config_mysql.conf preservado)"
 
-info "Aplicando sounds..."
-rsync -a /tmp/migracao-origem/sounds/ /var/lib/asterisk/sounds/
-chown -R asterisk:asterisk /var/lib/asterisk/sounds/
-ok "Sons aplicados"
-
-# =====================================================================
-# FASE 9 — CUSTOMIZAÇÕES MAGNUS — BANCO (itens 1-7 da lista)
-# =====================================================================
-titulo "FASE 9/16 — Customizações Admin: Banco"
-
-# 1) dbhost = 127.0.0.1 (padrão Magnus, já deve estar do res_config_mysql.conf preservado)
-DBHOST_ATUAL=$(grep "^dbhost" /etc/asterisk/res_config_mysql.conf | awk -F= '{print $2}' | tr -d ' ')
-ok "dbhost = $DBHOST_ATUAL (preservado do destino)"
-
-# 2) Trocar senha do mbillingUser (alinhar com res_config_mysql.conf)
-SENHA_MBILLING=$(grep "^dbpass" /etc/asterisk/res_config_mysql.conf | awk -F= '{print $2}' | tr -d ' ')
-mysql_local -e "
-  ALTER USER 'mbillingUser'@'localhost' IDENTIFIED BY '$SENHA_MBILLING';
-  ALTER USER 'mbillingUser'@'127.0.0.1' IDENTIFIED BY '$SENHA_MBILLING';
-  FLUSH PRIVILEGES;
-" 2>/dev/null || warn "mbillingUser pode não existir ainda — será criado pelo Magnus"
-
-mysql_local -e "
-  CREATE USER IF NOT EXISTS 'mbillingUser'@'localhost' IDENTIFIED BY '$SENHA_MBILLING';
-  CREATE USER IF NOT EXISTS 'mbillingUser'@'127.0.0.1' IDENTIFIED BY '$SENHA_MBILLING';
-  GRANT ALL PRIVILEGES ON mbilling.* TO 'mbillingUser'@'localhost';
-  GRANT ALL PRIVILEGES ON mbilling.* TO 'mbillingUser'@'127.0.0.1';
-  FLUSH PRIVILEGES;
-" 2>/dev/null
-ok "mbillingUser criado/atualizado"
-
-# 3) Tabelas customizadas Admin já vieram no dump da origem — só validar
-for T in pkg_password_reset pkg_tickets pkg_ticket_messages; do
-  EXISTS=$(mysql_local mbilling -N -e "SHOW TABLES LIKE '$T';" 2>/dev/null)
-  [ -n "$EXISTS" ] && ok "Tabela customizada $T: presente" || warn "Tabela customizada $T: AUSENTE (verificar origem)"
-done
-
-# 4) Salvar senha root em /root/passwordMysql.log
-echo "$SENHA_ROOT_LOCAL" > /root/passwordMysql.log
-chmod 600 /root/passwordMysql.log
-ok "Senha root salva em /root/passwordMysql.log (chmod 600)"
-
-# 5) Criar admin_user@IP_VPN com plugin correto
-mysql_local -e "DROP USER IF EXISTS 'admin_user'@'$IP_VPN_ADMIN';" 2>/dev/null
-read -sp "  Senha para admin_user@$IP_VPN_ADMIN (sem caracteres especiais \$!'\\): " SENHA_MAGNUS; echo ""
-[ -z "$SENHA_MAGNUS" ] && erro "Senha do admin_user é obrigatória"
-
-mysql_local -e "
-  CREATE USER 'admin_user'@'$IP_VPN_ADMIN' IDENTIFIED BY '$SENHA_MAGNUS';
-  GRANT ALL PRIVILEGES ON *.* TO 'admin_user'@'$IP_VPN_ADMIN' WITH GRANT OPTION;
-  ALTER USER 'admin_user'@'$IP_VPN_ADMIN' IDENTIFIED VIA mysql_native_password USING PASSWORD('$SENHA_MAGNUS');
-  FLUSH PRIVILEGES;
-" 2>/dev/null
-ok "admin_user@$IP_VPN_ADMIN criado (com plugin mysql_native_password)"
-
-# 6) Limpar pkg_firewall (regras inválidas que vêm do banco da origem)
-mysql_local mbilling -e "TRUNCATE TABLE pkg_firewall;" 2>/dev/null && ok "pkg_firewall limpa"
-
-# 7) Limpar runtime do Magnus
-rm -rf /var/www/html/mbilling/protected/runtime/* 2>/dev/null
-ok "Runtime do Magnus limpo"
-
-# =====================================================================
-# FASE 10 — CUSTOMIZAÇÕES MAGNUS — SEGURANÇA / FIREWALLD
-# =====================================================================
-titulo "FASE 10/16 — Customizações Admin: Segurança / firewalld"
-
-# 8) SSH na porta 22022
-if ! grep -qE "^Port 22022" /etc/ssh/sshd_config; then
-  sed -i 's/^#\?Port .*/Port 22022/' /etc/ssh/sshd_config
-  echo "Port 22022" >> /etc/ssh/sshd_config
-  warn "SSH configurado para porta 22022 — vai reiniciar SSH no final"
-fi
-ok "SSH configurado na porta 22022"
-
-# 9) Permissões dos arquivos *_magnus*.conf (lição aprendida 28/05)
+# Garantir permissão 664 nos arquivos *_magnus*.conf (lição aprendida 28/05)
 info "Aplicando chmod 664 nos arquivos regenerados pelo Magnus..."
 for F in /etc/asterisk/sip_magnus.conf /etc/asterisk/sip_magnus_user.conf \
          /etc/asterisk/sip_magnus_register.conf /etc/asterisk/iax_magnus.conf \
@@ -409,257 +323,162 @@ for F in /etc/asterisk/sip_magnus.conf /etc/asterisk/sip_magnus_user.conf \
   [ -f "$F" ] && chmod 664 "$F"
 done
 chown asterisk:asterisk /etc/asterisk/*_magnus*.conf 2>/dev/null
+ok "Permissões dos arquivos regenerados ajustadas (664)"
 
-# www-data no grupo asterisk
-if ! groups www-data | grep -qw asterisk; then
+# www-data no grupo asterisk (necessário para regeneração)
+if ! groups www-data 2>/dev/null | grep -qw asterisk; then
   usermod -aG asterisk www-data
   ok "www-data adicionado ao grupo asterisk"
 else
   ok "www-data já está no grupo asterisk"
 fi
 
-# 10) firewalld + anti-scanner SIP
-if systemctl is-active firewalld >/dev/null 2>&1; then
-  ok "firewalld já ativo"
-else
-  systemctl start firewalld 2>/dev/null
-  systemctl enable firewalld 2>/dev/null
-  ok "firewalld habilitado"
-fi
+info "Aplicando sounds..."
+rsync -a /tmp/migracao-origem/sounds/ /var/lib/asterisk/sounds/
+chown -R asterisk:asterisk /var/lib/asterisk/sounds/
+ok "Sons aplicados"
 
-# Restringir SSH 22022 ao bloco do admin
-BLOCO_ADMIN=$(echo "$IP_VPN_ADMIN" | awk -F. '{print $1"."$2"."$3".0/24"}')
-firewall-cmd --permanent --add-rich-rule="rule family=ipv4 source address=$BLOCO_ADMIN port port=22022 protocol=tcp accept" 2>/dev/null
-firewall-cmd --permanent --add-rich-rule="rule family=ipv4 source address=$BLOCO_ADMIN port port=3306 protocol=tcp accept" 2>/dev/null
-firewall-cmd --permanent --remove-port=22022/tcp 2>/dev/null
-firewall-cmd --permanent --remove-service=ssh 2>/dev/null
+# =====================================================================
+# FASE 9 — CUSTOMIZAÇÕES DE BANCO (Voxcorp)
+# =====================================================================
+titulo "FASE 9/11 — Customizações de banco Voxcorp"
 
-# Adicionar IAX se necessário
-firewall-cmd --permanent --add-port=4569/udp 2>/dev/null
+# 1) Confirmar dbhost preservado
+DBHOST_ATUAL=$(grep "^dbhost" /etc/asterisk/res_config_mysql.conf | awk -F= '{print $2}' | tr -d ' ')
+ok "dbhost = $DBHOST_ATUAL (preservado do destino)"
 
-# Anti-scanner SIP via direct rules
-for STRING in "friendly-scanner" "VaxSIPUserAgent"; do
-  for PROTO in tcp udp; do
-    for PORT in 5060 5080; do
-      firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 0 \
-        -p $PROTO --dport $PORT -m string --string "$STRING" --algo bm -j DROP 2>/dev/null
-    done
-  done
+# 2) Alinhar senha do mbillingUser com res_config_mysql.conf
+SENHA_MBILLING=$(grep "^dbpass" /etc/asterisk/res_config_mysql.conf | awk -F= '{print $2}' | tr -d ' ')
+
+mysql_local -e "
+  CREATE USER IF NOT EXISTS 'mbillingUser'@'localhost' IDENTIFIED BY '$SENHA_MBILLING';
+  CREATE USER IF NOT EXISTS 'mbillingUser'@'127.0.0.1' IDENTIFIED BY '$SENHA_MBILLING';
+  ALTER USER 'mbillingUser'@'localhost' IDENTIFIED BY '$SENHA_MBILLING';
+  ALTER USER 'mbillingUser'@'127.0.0.1' IDENTIFIED BY '$SENHA_MBILLING';
+  GRANT ALL PRIVILEGES ON mbilling.* TO 'mbillingUser'@'localhost';
+  GRANT ALL PRIVILEGES ON mbilling.* TO 'mbillingUser'@'127.0.0.1';
+  FLUSH PRIVILEGES;
+" 2>/dev/null
+ok "mbillingUser criado/atualizado com senha do res_config_mysql.conf"
+
+# 3) Validar tabelas customizadas Voxcorp
+for T in pkg_password_reset pkg_tickets pkg_ticket_messages; do
+  EXISTS=$(mysql_local mbilling -N -e "SHOW TABLES LIKE '$T';" 2>/dev/null)
+  [ -n "$EXISTS" ] && ok "Tabela customizada $T: presente" || warn "Tabela customizada $T: AUSENTE"
 done
 
-firewall-cmd --reload >/dev/null 2>&1
-ok "firewalld configurado: SSH/MySQL restritos ao bloco $BLOCO_ADMIN, anti-scanner ativo, IAX 4569 aberto"
+# 4) Salvar senha root em /root/passwordMysql.log
+echo "$SENHA_ROOT_LOCAL" > /root/passwordMysql.log
+chmod 600 /root/passwordMysql.log
+ok "Senha root salva em /root/passwordMysql.log (chmod 600)"
 
-# 11) Fail2ban ativo
-systemctl is-active fail2ban >/dev/null 2>&1 && ok "fail2ban ativo" || warn "fail2ban não ativo (instalar manualmente)"
+# 5) Criar voxcorp@IP_VPN para DBeaver
+echo ""
+read -sp "  Senha para voxcorp@$IP_VPN_ADMIN (sem caracteres especiais \$!'\\): " SENHA_VOXCORP; echo ""
+[ -z "$SENHA_VOXCORP" ] && erro "Senha do voxcorp é obrigatória"
 
-# =====================================================================
-# FASE 11 — CUSTOMIZAÇÕES MAGNUS — DNS / SSL
-# =====================================================================
-titulo "FASE 11/16 — Customizações Admin: DNS / SSL"
+mysql_local -e "
+  DROP USER IF EXISTS 'voxcorp'@'$IP_VPN_ADMIN';
+  CREATE USER 'voxcorp'@'$IP_VPN_ADMIN' IDENTIFIED BY '$SENHA_VOXCORP';
+  GRANT ALL PRIVILEGES ON *.* TO 'voxcorp'@'$IP_VPN_ADMIN' WITH GRANT OPTION;
+  ALTER USER 'voxcorp'@'$IP_VPN_ADMIN' IDENTIFIED VIA mysql_native_password USING PASSWORD('$SENHA_VOXCORP');
+  FLUSH PRIVILEGES;
+" 2>/dev/null
+ok "voxcorp@$IP_VPN_ADMIN criado (com plugin mysql_native_password)"
 
-if [ -n "$DOMINIO_DESTINO" ]; then
-  # 12) Configurar Apache VirtualHost
-  if [ ! -f "/etc/apache2/sites-available/magnus-magnus.conf" ]; then
-    cat > /etc/apache2/sites-available/magnus-magnus.conf << APACHEEOF
-<VirtualHost *:80>
-    ServerName $DOMINIO_DESTINO
-    DocumentRoot /var/www/html/mbilling
-    <Directory /var/www/html/mbilling>
-        AllowOverride All
-        Require all granted
-    </Directory>
-    ErrorLog \${APACHE_LOG_DIR}/magnus-magnus-error.log
-    CustomLog \${APACHE_LOG_DIR}/magnus-magnus-access.log combined
-</VirtualHost>
-APACHEEOF
-    a2ensite magnus-magnus.conf >/dev/null 2>&1
-    a2enmod rewrite ssl >/dev/null 2>&1
-    ok "Apache VirtualHost criado para $DOMINIO_DESTINO"
-  else
-    ok "Apache VirtualHost já existe"
-  fi
+# 6) Limpar pkg_firewall (regras vindas da origem podem ser inválidas)
+mysql_local mbilling -e "TRUNCATE TABLE pkg_firewall;" 2>/dev/null && ok "pkg_firewall limpa"
 
-  # 13) SSL Let's Encrypt
-  if [ "$SSL_OPCAO" = "1" ]; then
-    if ! command -v certbot >/dev/null 2>&1; then
-      info "Instalando certbot..."
-      apt-get install -y certbot python3-certbot-apache >/dev/null 2>&1
-    fi
-    warn "Vou tentar gerar SSL — domínio $DOMINIO_DESTINO precisa estar apontando para este IP"
-    certbot --apache -d "$DOMINIO_DESTINO" --non-interactive --agree-tos --email admin@admin_usertelecom.com.br --redirect 2>&1 | tail -5
-    ok "SSL Let's Encrypt configurado (verificar acima)"
-  else
-    info "SSL pulado conforme opção"
-  fi
-else
-  warn "Sem domínio configurado — Apache mantém configuração padrão"
-fi
+# 7) Limpar runtime do Magnus
+rm -rf /var/www/html/mbilling/protected/runtime/* 2>/dev/null
+ok "Runtime do Magnus limpo"
 
 # =====================================================================
-# FASE 12 — CUSTOMIZAÇÕES MAGNUS — CRON / LOGROTATE / BACKUP
+# FASE 10 — VALIDAÇÃO BÁSICA DE DADOS
 # =====================================================================
-titulo "FASE 12/16 — Customizações Admin: Cron / Logrotate / Backup"
+titulo "FASE 10/11 — Validação de dados (sem reiniciar serviços)"
 
-# 14) Cron do Magnus (geralmente já existe, validar)
-CRON_COUNT=$(crontab -l 2>/dev/null | grep -cE "magnus|mbilling|cron\.php")
-[ "$CRON_COUNT" -gt 0 ] && ok "Cron Magnus presente ($CRON_COUNT linhas)" || warn "Sem cron Magnus — verificar"
+# Validar conexão do mbillingUser
+MYSQL_PWD="$SENHA_MBILLING" mysql --user=mbillingUser mbilling -e "SELECT 1;" >/dev/null 2>&1 \
+  && ok "mbillingUser consegue conectar" \
+  || warn "mbillingUser NÃO consegue conectar — verificar senha"
 
-# 15) Logrotate
-if [ ! -f "/etc/logrotate.d/magnus-magnus" ]; then
-  cat > /etc/logrotate.d/magnus-magnus << 'LOGROTATEEOF'
-/var/www/html/mbilling/protected/runtime/*.log {
-    daily
-    rotate 14
-    compress
-    missingok
-    notifempty
-    create 664 asterisk asterisk
-}
-LOGROTATEEOF
-  ok "Logrotate configurado"
-else
-  ok "Logrotate já configurado"
-fi
+# Contar registros principais
+USERS=$(mysql_local mbilling -N -e "SELECT COUNT(*) FROM pkg_user;" 2>/dev/null)
+TRUNKS=$(mysql_local mbilling -N -e "SELECT COUNT(*) FROM pkg_trunk;" 2>/dev/null)
+RAMAIS=$(mysql_local mbilling -N -e "SELECT COUNT(*) FROM pkg_sip;" 2>/dev/null)
+DIDS=$(mysql_local mbilling -N -e "SELECT COUNT(*) FROM pkg_did;" 2>/dev/null)
+ok "Banco importado: $USERS usuários, $TRUNKS trunks, $RAMAIS ramais SIP, $DIDS DIDs"
 
-# 16) Backup automático diário
-if [ ! -f "/etc/cron.daily/magnus-backup-magnus" ]; then
-  cat > /etc/cron.daily/magnus-backup-magnus << 'BACKUPEOF'
-#!/bin/bash
-BACKUP_DIR="/var/backups/magnus-magnus"
-mkdir -p "$BACKUP_DIR"
-chmod 700 "$BACKUP_DIR"
-SENHA=$(cat /root/passwordMysql.log)
-MYSQL_PWD="$SENHA" mysqldump --single-transaction --quick --routines --triggers --events mbilling | gzip > "$BACKUP_DIR/mbilling-$(date +%Y%m%d).sql.gz"
-# manter últimos 7 dias
-find "$BACKUP_DIR" -name "mbilling-*.sql.gz" -mtime +7 -delete
-BACKUPEOF
-  chmod +x /etc/cron.daily/magnus-backup-magnus
-  ok "Backup automático diário em /etc/cron.daily/magnus-backup-magnus"
-else
-  ok "Backup automático já configurado"
-fi
-
-# =====================================================================
-# FASE 13 — PÁGINA DE ACESSO BLOQUEADO
-# =====================================================================
-titulo "FASE 13/16 — Página de acesso bloqueado"
-
-# 17) Página customizada para acesso negado
-mkdir -p /var/www/html/blocked
-cat > /var/www/html/blocked/index.html << 'HTMLEOF'
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Acesso Restrito - Admin</title>
-  <style>
-    body { font-family: sans-serif; text-align: center; padding: 50px; background: #1E1530; color: white; }
-    h1 { color: #FF8A2B; }
-    p { color: #ccc; }
-  </style>
-</head>
-<body>
-  <h1>Acesso Restrito</h1>
-  <p>Este sistema é de uso autorizado apenas.</p>
-  <p>Se você precisa acessar, entre em contato com o administrador.</p>
-  <p><small>Comunidade MagnusBilling</small></p>
-</body>
-</html>
-HTMLEOF
-ok "Página de acesso bloqueado em /var/www/html/blocked/index.html"
-
-# =====================================================================
-# FASE 14 — REINICIALIZAÇÃO DOS SERVIÇOS
-# =====================================================================
-titulo "FASE 14/16 — Reinicialização ordenada"
-
-info "Reiniciando MariaDB..."
-systemctl restart mariadb 2>/dev/null && ok "MariaDB OK" || warn "MariaDB com aviso"
-
-info "Reiniciando Apache..."
-systemctl restart apache2 2>/dev/null && ok "Apache OK" || warn "Apache com aviso"
-
-info "Reiniciando php-fpm..."
-systemctl restart php7.3-fpm 2>/dev/null || systemctl restart php-fpm 2>/dev/null
-ok "PHP-FPM reiniciado"
-
-info "Reiniciando Asterisk..."
-systemctl restart asterisk 2>/dev/null && ok "Asterisk OK" || warn "Asterisk com aviso"
-
-info "Reiniciando fail2ban..."
-systemctl restart fail2ban 2>/dev/null
-ok "fail2ban reiniciado"
-
-info "Reiniciando SSH (porta 22022)..."
-systemctl restart sshd 2>/dev/null
-ok "SSH reiniciado — próxima conexão usar porta 22022"
-
-sleep 3
-
-# =====================================================================
-# FASE 15 — VALIDAÇÃO FINAL
-# =====================================================================
-titulo "FASE 15/16 — Validação final"
-
-# HTTP
-HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 5 http://localhost/)
-[ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ] && ok "HTTP local: $HTTP_CODE" || warn "HTTP local: $HTTP_CODE (verificar)"
-
-# Asterisk
-asterisk -rx "core show uptime" 2>&1 | head -1 | grep -q "uptime" && ok "Asterisk respondendo via CLI" || warn "Asterisk não responde via CLI"
-
-# MySQL local
-mysql_local -e "SELECT COUNT(*) FROM mbilling.pkg_user;" >/dev/null 2>&1 && ok "MySQL local OK" || warn "MySQL local com problema"
-
-# Versão Magnus
+# Versão Magnus final
 VERSAO_FINAL=$(mysql_local mbilling -N -e "SELECT config_value FROM pkg_configuration WHERE config_key='version';" 2>/dev/null)
 ok "Magnus versão: $VERSAO_FINAL"
 
-# Trunks SIP
-TRUNKS=$(mysql_local mbilling -N -e "SELECT COUNT(*) FROM pkg_trunk;" 2>/dev/null)
-ok "Trunks SIP no banco: $TRUNKS"
-
-# Sincronia arquivo
-PEERS=$(asterisk -rx "sip show peers" 2>/dev/null | tail -1 | grep -oE "[0-9]+ sip peers" | head -1)
-ok "Asterisk: $PEERS"
+# Verificar permissões dos arquivos críticos
+PERM_OK=1
+for F in /etc/asterisk/sip_magnus.conf /etc/asterisk/sip_magnus_user.conf; do
+  if [ -f "$F" ]; then
+    PERMS=$(stat -c '%a' "$F")
+    [ "$PERMS" = "664" ] || { warn "$F está com permissão $PERMS (esperado 664)"; PERM_OK=0; }
+  fi
+done
+[ $PERM_OK -eq 1 ] && ok "Permissões dos *_magnus*.conf OK"
 
 # =====================================================================
-# FASE 16 — RESUMO E PRÓXIMOS PASSOS
+# FASE 11 — RESUMO E PRÓXIMOS PASSOS
 # =====================================================================
-titulo "FASE 16/16 — Resumo e próximos passos"
+titulo "FASE 11/11 — Resumo e próximos passos"
 
 echo ""
-echo -e "  ${VERDE}${NEGRITO}✓ MIGRAÇÃO CONCLUÍDA${NC}"
+echo -e "  ${VERDE}${NEGRITO}✓ MIGRAÇÃO DE DADOS CONCLUÍDA${NC}"
 echo ""
-echo "  Origem:           $ORIGEM_IP"
-echo "  Destino:          $(hostname) ($(hostname -I | awk '{print $1}'))"
-echo "  Backup pré-migração: $BACKUP_DIR"
-echo "  Log completo:     $LOG_FILE"
+echo "  Origem:                    $ORIGEM_IP"
+echo "  Destino:                   $(hostname) ($(hostname -I | awk '{print $1}'))"
+echo "  Backup pré-migração:       $BACKUP_DIR"
+echo "  Log completo:              $LOG_FILE"
+echo ""
+warn "Serviços APACHE e ASTERISK estão PARADOS no destino."
+warn "Você decide quando reiniciar (recomenda-se validar antes pelo console)."
 echo ""
 echo -e "${NEGRITO}  PRÓXIMOS PASSOS RECOMENDADOS:${NC}"
 echo ""
-echo "  1. Validar acesso pelo navegador:"
-[ -n "$DOMINIO_DESTINO" ] && echo "       https://$DOMINIO_DESTINO/" || echo "       http://$(hostname -I | awk '{print $1}')/"
+echo "  1. (Opcional) Confira o banco antes de subir serviços:"
+echo "       mysql mbilling -e 'SELECT trunkcode, host FROM pkg_trunk LIMIT 5;'"
 echo ""
-echo "  2. Validar DBeaver com admin_user@$IP_VPN_ADMIN"
+echo "  2. Reiniciar serviços:"
+echo "       systemctl restart mariadb"
+echo "       systemctl restart apache2"
+echo "       systemctl restart php7.3-fpm   # ou php-fpm conforme versão"
+echo "       systemctl restart asterisk"
 echo ""
-echo "  3. Rodar health check:"
+echo "  3. Validar HTTP local:"
+echo "       curl -sI http://localhost/ | head -1"
+echo ""
+echo "  4. Validar Asterisk:"
+echo "       asterisk -rx 'core show uptime'"
+echo "       asterisk -rx 'sip show peers'"
+echo ""
+echo "  5. Rodar health check:"
 echo "       bash /root/magnus-health-check.sh"
 echo ""
-echo "  4. Executar update.sh em janela de manutenção (NÃO foi rodado neste script):"
+echo "  6. Configurar firewall (script separado):"
+echo "       bash /root/configurar_iptables_voxcorp.sh"
+echo ""
+echo "  7. Configurar Apache VirtualHost + SSL (script separado):"
+echo "       bash /root/configurar_ssl_voxcorp.sh"
+echo ""
+echo "  8. Configurar cron, backup diário, logrotate (script separado):"
+echo "       bash /root/configurar_seguranca_diaria.sh"
+echo ""
+echo "  9. Executar update.sh em janela de manutenção (NÃO foi rodado neste script):"
 echo "       bash /var/www/html/mbilling/protected/commands/update.sh"
 echo ""
-echo "  5. Apontar DNS de $DOMINIO_DESTINO para $(hostname -I | awk '{print $1}') (se ainda não)"
+echo -e "${NEGRITO}  ROLLBACK (se algo deu errado):${NC}"
 echo ""
-echo "  6. Limpar backup antigo de origem quando confirmar tudo OK:"
-echo "       rm -rf /tmp/migracao-origem"
-echo ""
-echo "  7. ROLLBACK (se algo der errado, restaurar estado anterior):"
-echo "       mysql -uroot mbilling < $BACKUP_DIR/mbilling-destino-antes.sql"
+echo "       mysql mbilling < $BACKUP_DIR/mbilling-destino-antes.sql"
 echo "       tar xzf $BACKUP_DIR/etc-asterisk-antes.tar.gz -C /"
 echo "       systemctl restart asterisk apache2 mariadb"
 echo ""
-warn "TROCAR a senha do admin_user@$IP_VPN_ADMIN se foi exposta neste log!"
+warn "TROCAR a senha do voxcorp@$IP_VPN_ADMIN se foi exposta neste log!"
 echo ""
 exit 0

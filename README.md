@@ -16,7 +16,7 @@ bash <(curl -sSL https://raw.githubusercontent.com/munin81/setup/main/setup.sh)
 - `scripts/diagnostico/`: Scripts read-only para health-check e auditoria.
 - `scripts/instalacao/`: Ajustes pós-instalação, firewall e customizações padrão.
 - `scripts/manutencao/`: Rotinas de operação (remoção de logs, recarga de DID, backups).
-- `scripts/migracao/`: Scripts de backup e restore de servidor Magnus inteiro ou tabelas.
+- `scripts/migracao/`: Scripts de backup e migração de dados de servidor Magnus. (Nota: Configurações de firewall, SSL e cron são feitas através de scripts separados pós-migração).
 - `docs/`: Manuais operacionais, tutoriais de runbooks e registro de bugs conhecidos.
 - `configs/`: Templates de arquivos de configuração (Asterisk, Fail2ban, Firewalld).
 

@@ -19,6 +19,11 @@ else
     cd "$PROJECT_DIR" && git pull origin main >/dev/null 2>&1
 fi
 
+# Garante que o usuário sempre veja o menu atualizado mesmo que o script rodado pelo curl esteja em cache
+if [ "$(realpath "$0")" != "$PROJECT_DIR/setup.sh" ] && [ "$1" != "--no-reload" ]; then
+    exec bash "$PROJECT_DIR/setup.sh" --no-reload
+fi
+
 # Tenta importar common.sh
 if [ -f "$PROJECT_DIR/scripts/lib/common.sh" ]; then
     source "$PROJECT_DIR/scripts/lib/common.sh"
@@ -50,6 +55,7 @@ EOF_ASCII
     echo "4. Deletar CDR / Oferta (Manutenção)"
     echo "5. Ajustar regras de Firewall/IPtables (Instalação)"
     echo "6. Instalar MagnusBilling 7 Oficial (Instalação base)"
+    echo "7. Configurar SSL Let's Encrypt (Apache)"
     echo "0. Sair"
     echo "------------------------------------------------------------------"
     read -p "Opção: " OPTION
@@ -85,6 +91,11 @@ while true; do
             ;;
         6)
             bash "$PROJECT_DIR/scripts/instalacao/instalar_magnus.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        7)
+            bash "$PROJECT_DIR/scripts/instalacao/configurar_ssl_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

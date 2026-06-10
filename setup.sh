@@ -46,19 +46,45 @@ show_menu() {
                |___/                                    
 EOF_ASCII
     echo -e "${NC}"
-    echo -e "Bem-vindo ao ${NEGRITO}Magnus Utilities${NC} - Utilitários MagnusBilling 7.x"
-    echo "------------------------------------------------------------------"
-    echo "Selecione uma ferramenta:"
-    echo "1. Diagnóstico Geral (Health Check)"
-    echo "2. Migração Completa de MagnusBilling"
-    echo "3. Alterar Bloco DID (Manutenção)"
-    echo "4. Deletar CDR / Oferta (Manutenção)"
-    echo "5. Ajustar regras de Firewall/IPtables (Instalação)"
-    echo "6. Instalar MagnusBilling 7 Oficial (Instalação base)"
-    echo "7. Configurar SSL Let's Encrypt (Apache)"
-    echo "8. Limpar URL do Painel (Remover /mbilling)"
-    echo "0. Sair"
-    echo "------------------------------------------------------------------"
+    echo -e "  Bem-vindo ao ${NEGRITO}Magnus Utilities${NC} - Utilitários MagnusBilling 7.x"
+    echo "=================================================================="
+    echo -e "${NEGRITO}${AZUL}                 [ DIAGNÓSTICO E AUDITORIA ]${NC}"
+    echo "=================================================================="
+    echo -e " ${NEGRITO}1.${NC} Auditoria de Saúde e Segurança (Health Check)"
+    echo -e "    ${AZUL}↳${NC} Varre serviços, corrige permissões, alerta erros e audita."
+    echo ""
+    echo "=================================================================="
+    echo -e "${NEGRITO}${AZUL}                 [ INSTALAÇÃO E MIGRAÇÃO ]${NC}"
+    echo "=================================================================="
+    echo -e " ${NEGRITO}2.${NC} Instalação Oficial do MagnusBilling 7"
+    echo -e "    ${AZUL}↳${NC} Baixa e executa o instalador limpo direto do GitHub oficial."
+    echo -e " ${NEGRITO}3.${NC} Migrar Dados de Outro Servidor Magnus"
+    echo -e "    ${AZUL}↳${NC} Conecta via SSH, copia banco, áudios e configurações base."
+    echo ""
+    echo "=================================================================="
+    echo -e "${NEGRITO}${AZUL}               [ CONFIGURAÇÃO DE SERVIDOR WEB ]${NC}"
+    echo "=================================================================="
+    echo -e " ${NEGRITO}4.${NC} Configurar Certificado SSL (HTTPS Let's Encrypt)"
+    echo -e "    ${AZUL}↳${NC} Emite SSL gratuito e aplica redirecionamento seguro no Apache."
+    echo -e " ${NEGRITO}5.${NC} Limpar URL do Painel (Remover /mbilling)"
+    echo -e "    ${AZUL}↳${NC} Altera o Apache para exibir o painel direto na raiz do domínio."
+    echo ""
+    echo "=================================================================="
+    echo -e "${NEGRITO}${AZUL}                  [ SEGURANÇA E FIREWALL ]${NC}"
+    echo "=================================================================="
+    echo -e " ${NEGRITO}6.${NC} Blindagem de Firewall Interativo (IPtables)"
+    echo -e "    ${AZUL}↳${NC} Trava acesso admin (SSH/MySQL) com proteção anti-bloqueio."
+    echo ""
+    echo "=================================================================="
+    echo -e "${NEGRITO}${AZUL}                  [ MANUTENÇÃO DE BANCO ]${NC}"
+    echo "=================================================================="
+    echo -e " ${NEGRITO}7.${NC} Repasse em Massa de DIDs"
+    echo -e "    ${AZUL}↳${NC} Transfere DIDs para outro cliente e atualiza as rotas SIP."
+    echo -e " ${NEGRITO}8.${NC} Limpeza Profunda de Inativos (CDR e Ofertas)"
+    echo -e "    ${AZUL}↳${NC} Exclui histórico de usuários cancelados por período."
+    echo ""
+    echo -e " ${NEGRITO}0.${NC} Sair"
+    echo "=================================================================="
     read -p "Opção: " OPTION
 }
 
@@ -71,37 +97,37 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         2)
-            bash "$PROJECT_DIR/scripts/migracao/migrar_magnus.sh"
-            echo ""
-            read -p "Pressione ENTER para voltar ao menu..."
-            ;;
-        3)
-            bash "$PROJECT_DIR/scripts/manutencao/alterar_bloco_did.sh"
-            echo ""
-            read -p "Pressione ENTER para voltar ao menu..."
-            ;;
-        4)
-            bash "$PROJECT_DIR/scripts/manutencao/deletar_cdr_oferta.sh"
-            echo ""
-            read -p "Pressione ENTER para voltar ao menu..."
-            ;;
-        5)
-            bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus.sh"
-            echo ""
-            read -p "Pressione ENTER para voltar ao menu..."
-            ;;
-        6)
             bash "$PROJECT_DIR/scripts/instalacao/instalar_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
-        7)
+        3)
+            bash "$PROJECT_DIR/scripts/migracao/migrar_magnus.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        4)
             bash "$PROJECT_DIR/scripts/instalacao/configurar_ssl_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
-        8)
+        5)
             bash "$PROJECT_DIR/scripts/instalacao/limpar_url_magnus.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        6)
+            bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        7)
+            bash "$PROJECT_DIR/scripts/manutencao/alterar_bloco_did.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        8)
+            bash "$PROJECT_DIR/scripts/manutencao/deletar_cdr_oferta.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

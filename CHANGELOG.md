@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- feat(setup): nova interface do menu dividida em categorias com descritivos explicativos
 - security(auditoria): remove IPs restritos e domínio hardcoded para evitar vazamentos
 - security(manutencao): remove senha exposta em texto plano e corrige vulnerabilidade na linha de comando mysql (ps aux)
 - security(iptables): adiciona interatividade na coleta de IP e proteção contra lock-out (deadman switch dinâmico)

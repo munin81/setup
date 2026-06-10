@@ -8,10 +8,27 @@ echo "------------------------------------------------------------------"
 echo
 
 # --- Configuração do Banco de Dados ---
-DB_USER="root"
-DB_PASS="fVQLlmr4UCuVEpSf"
-DB_HOST="localhost"
-DB_NAME="mbilling"
+if [ -f "/etc/asterisk/res_config_mysql.conf" ]; then
+  DB_USER=$(grep "^dbuser" /etc/asterisk/res_config_mysql.conf | cut -d'=' -f2 | tr -d ' ')
+  DB_PASS=$(grep "^dbpass" /etc/asterisk/res_config_mysql.conf | cut -d'=' -f2 | tr -d ' ')
+  DB_HOST=$(grep "^dbhost" /etc/asterisk/res_config_mysql.conf | cut -d'=' -f2 | tr -d ' ')
+  DB_NAME=$(grep "^dbname" /etc/asterisk/res_config_mysql.conf | cut -d'=' -f2 | tr -d ' ')
+elif [ -f "/var/www/html/mbilling/protected/config/db.php" ]; then
+  DB_USER=$(grep "username" /var/www/html/mbilling/protected/config/db.php | cut -d"'" -f4)
+  DB_PASS=$(grep "password" /var/www/html/mbilling/protected/config/db.php | cut -d"'" -f4)
+  DB_HOST="localhost"
+  DB_NAME="mbilling"
+else
+  read -p "  Usuário do banco: " DB_USER
+  read -sp "  Senha do banco: " DB_PASS
+  echo ""
+  DB_HOST="localhost"
+  DB_NAME="mbilling"
+fi
+
+mysql_run() {
+  MYSQL_PWD="$DB_PASS" mysql --user="$DB_USER" -h "$DB_HOST" -D "$DB_NAME" "$@"
+}
 
 # --- ETAPA 1: Coleta do Período ---
 read -p "Digite a DATA DE INÍCIO (formato AAAA-MM-DD): " START_DATE
@@ -27,7 +44,7 @@ echo "Buscando usuários inativos (active=0) criados entre $START_DATE e $END_DA
 
 # --- ETAPA 2: Listagem dos Usuários ---
 QUERY_FIND_USERS="SELECT id, username FROM pkg_user WHERE active = 0 AND DATE(creationdate) BETWEEN '$START_DATE' AND '$END_DATE';"
-USER_LIST=$(mysql --user="$DB_USER" --password="$DB_PASS" -h "$DB_HOST" -D "$DB_NAME" -N -e "$QUERY_FIND_USERS")
+USER_LIST=$(mysql_run -N -e "$QUERY_FIND_USERS")
 
 if [ $? -ne 0 ]; then
     echo "ERRO ao buscar usuários. Verifique se as datas estão no formato correto (AAAA-MM-DD)."
@@ -86,7 +103,7 @@ COMMIT;
 "
 
 # Executa o bloco de comandos
-OUTPUT=$(mysql --user="$DB_USER" --password="$DB_PASS" -h "$DB_HOST" -D "$DB_NAME" -e "$SQL_COMMANDS" 2>&1)
+OUTPUT=$(mysql_run -e "$SQL_COMMANDS" 2>&1)
 
 if [ $? -ne 0 ]; then
     echo "ERRO DURANTE A EXECUÇÃO DA LIMPEZA:"

@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+- security(auditoria): remove IPs restritos e domínio hardcoded para evitar vazamentos
+- security(manutencao): remove senha exposta em texto plano e corrige vulnerabilidade na linha de comando mysql (ps aux)
+- security(iptables): adiciona interatividade na coleta de IP e proteção contra lock-out (deadman switch dinâmico)
 - feat(apache): adiciona script para limpar URL do painel (remover /mbilling)
 - feat(ssl): adiciona script de instalação e configuração do Certbot Let's Encrypt (configurar_ssl_magnus.sh)
 - fix(setup): adiciona mecanismo de auto-reload para evitar problema de cache do GitHub no curl

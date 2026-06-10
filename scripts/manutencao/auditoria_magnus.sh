@@ -2,32 +2,27 @@
 echo "--- AUDITORIA DE SEGURANÇA ATIVA (SÓ LEITURA) ---"
 
 # 1. Validação de SSL e Domínio
-echo "[-] Verificando Certificado SSL:"
-certbot certificates | grep -E "Domains:|Expiry Date:|Path:" || echo "[!] ALERTA: Domínio brasil.telsemfio.com.br não encontrado!"
+echo "[-] Verificando Certificados SSL Locais (Certbot):"
+certbot certificates | grep -E "Domains:|Expiry Date:|Path:" || echo "[!] ALERTA: Nenhum domínio válido detectado pelo Certbot!"
 
 # 2. Auditoria de Usuários do MariaDB
-# Verifica se existem acessos que NÃO são os autorizados (n8n, suporte local e localhosts)
 echo "[-] Analisando permissões de Banco de Dados (MariaDB)..."
-# Lista usuários root e admin_user fora do padrão de segurança definido
-mysql -u root -p"$(cat /root/passwordMysql.log)" -e "
-SELECT User, Host, 'ACESSO NÃO RECONHECIDO' as Status 
-FROM mysql.user 
-WHERE (User='root' AND Host NOT IN ('localhost', '127.0.0.1', '186.194.49.134'))
-OR (User='admin_user' AND Host NOT IN ('localhost', '127.0.0.1', '186.194.49.140', '186.194.49.134'));"
+echo "    Buscando usuários com acesso externo configurado:"
+mysql -u root -p"$(cat /root/passwordMysql.log 2>/dev/null)" -e "
+SELECT User, Host FROM mysql.user 
+WHERE Host NOT IN ('localhost', '127.0.0.1');" 2>/dev/null || echo "[!] Não foi possível checar o DB (Senha em passwordMysql.log ausente?)"
 
 # 3. Auditoria de Acessos SSH Ativos
 echo "[-] Verificando origem das conexões SSH atuais..."
 who | awk '{print $1, $5}' | sed 's/[()]//g' | while read user ip; do
-    if [ "$ip" != "186.194.49.134" ] && [ "$ip" != "" ]; then
-        echo "[!] ATENÇÃO: Usuário $user conectado via SSH a partir de IP não padrão: $ip"
-    else
-        echo "[OK] Conexão SSH legítima: $user ($ip)"
+    if [ "$ip" != "" ]; then
+        echo "    Usuário logado: $user, Origem: $ip"
     fi
 done
 
 # 4. Status de Configuração Apache
 echo "[-] Verificando VirtualHosts Ativos (SSL):"
-apache2ctl -S | grep "port 443" || echo "[!] ALERTA: HTTPS não configurado corretamente no Apache."
+apache2ctl -S 2>/dev/null | grep "port 443" || echo "[!] ALERTA: HTTPS não configurado corretamente no Apache."
 
 # 5. Verificação de Porta Aberta (MySQL)
 echo "[-] Verificando se a porta 3306 aceita conexões externas (Bind Address):"

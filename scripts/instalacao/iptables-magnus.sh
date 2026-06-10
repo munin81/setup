@@ -1,13 +1,25 @@
 #!/bin/bash
 # Iptables Magnus + Admin - Servidor 136
 # Baseado em: https://wiki.magnusbilling.org/pt-br/source/security/iptables.html
-# Customizações Admin: SSH 22022, blocos 1.2.3.0/24 e 5.6.7.0/24,
-# MySQL 3306 para API N8N, sem firewalld, deadman switch via 'at'
+# Customizações Admin interativas e seguras
 
 set -e
 
-ADMIN_BLOCK_1="1.2.3.0/24"  # Troque pelo seu bloco
-ADMIN_BLOCK_2="5.6.7.0/24"  # Troque pelo seu bloco
+# Detecta o IP atual do usuário que está rodando o script
+MY_IP=$(echo $SSH_CLIENT | awk '{ print $1}')
+if [ -z "$MY_IP" ]; then
+    MY_IP="IP_DESCONHECIDO"
+fi
+
+echo "--- AVISO DE SEGURANÇA ---"
+echo "Seu IP atual conectado no SSH é: $MY_IP"
+echo "O script exigirá IPs ou blocos autorizados (Ex: 1.2.3.4 ou 1.2.3.0/24)."
+echo ""
+
+read -p "Informe o Bloco/IP Admin 1 [Ex: $MY_IP]: " ADMIN_BLOCK_1
+ADMIN_BLOCK_1=${ADMIN_BLOCK_1:-$MY_IP}
+
+read -p "Informe o Bloco/IP Admin 2 [Opcional, Enter para pular]: " ADMIN_BLOCK_2
 
 echo "[1/15] Limpando regras existentes e setando policy ACCEPT temporária..."
 iptables -P INPUT ACCEPT
@@ -28,11 +40,15 @@ iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
 
 echo "[5/15] SSH 22022 só dos blocos Admin..."
 iptables -A INPUT -p tcp --dport 22022 -s $ADMIN_BLOCK_1 -j ACCEPT
-iptables -A INPUT -p tcp --dport 22022 -s $ADMIN_BLOCK_2 -j ACCEPT
+if [ -n "$ADMIN_BLOCK_2" ]; then
+    iptables -A INPUT -p tcp --dport 22022 -s $ADMIN_BLOCK_2 -j ACCEPT
+fi
 
 echo "[6/15] MySQL 3306 só dos blocos Admin (API N8N)..."
 iptables -A INPUT -p tcp --dport 3306 -s $ADMIN_BLOCK_1 -j ACCEPT
-iptables -A INPUT -p tcp --dport 3306 -s $ADMIN_BLOCK_2 -j ACCEPT
+if [ -n "$ADMIN_BLOCK_2" ]; then
+    iptables -A INPUT -p tcp --dport 3306 -s $ADMIN_BLOCK_2 -j ACCEPT
+fi
 
 echo "[7/15] HTTP 80 público..."
 iptables -A INPUT -p tcp --dport 80 -j ACCEPT
@@ -72,4 +88,24 @@ echo ""
 echo "=== REGRAS APLICADAS ==="
 iptables -L INPUT -n --line-numbers
 echo ""
-echo "✓ Script concluído. Deadman switch agendado em script separado."
+echo "--------------------------------------------------------"
+echo "!! DEADMAN SWITCH (PROTEÇÃO DE AUTO-BLOQUEIO) !!"
+echo "Verifique se a sua conexão SSH continua funcionando (abra outro terminal)."
+echo "Você tem 30 segundos para confirmar, senão o firewall será ZERADO!"
+echo "--------------------------------------------------------"
+
+read -t 30 -p "As regras estão OK? [s/N]: " CONFIRM_FIREWALL || true
+
+if [[ ! "$CONFIRM_FIREWALL" =~ ^[Ss]$ ]]; then
+    echo ""
+    echo "Tempo esgotado ou operação negada! Fazendo ROLLBACK (Limpando o firewall)..."
+    iptables -P INPUT ACCEPT
+    iptables -P FORWARD ACCEPT
+    iptables -P OUTPUT ACCEPT
+    iptables -F
+    echo "Firewall zerado. Seu acesso foi recuperado."
+    exit 1
+fi
+
+echo ""
+echo "✓ Script concluído e regras consolidadas com segurança!"

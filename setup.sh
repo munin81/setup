@@ -56,6 +56,7 @@ EOF_ASCII
     echo "5. Ajustar regras de Firewall/IPtables (Instalação)"
     echo "6. Instalar MagnusBilling 7 Oficial (Instalação base)"
     echo "7. Configurar SSL Let's Encrypt (Apache)"
+    echo "8. Limpar URL do Painel (Remover /mbilling)"
     echo "0. Sair"
     echo "------------------------------------------------------------------"
     read -p "Opção: " OPTION
@@ -96,6 +97,11 @@ while true; do
             ;;
         7)
             bash "$PROJECT_DIR/scripts/instalacao/configurar_ssl_magnus.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        8)
+            bash "$PROJECT_DIR/scripts/instalacao/limpar_url_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

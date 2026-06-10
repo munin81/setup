@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- feat(apache): adiciona script para limpar URL do painel (remover /mbilling)
 - feat(ssl): adiciona script de instalação e configuração do Certbot Let's Encrypt (configurar_ssl_magnus.sh)
 - fix(setup): adiciona mecanismo de auto-reload para evitar problema de cache do GitHub no curl
 - fix(migrar): v5.2.1 remove bug do ALTER USER e permite usuários dinâmicos (admin e api)

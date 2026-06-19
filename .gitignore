@@ -1,0 +1,29 @@
+# Logs
+*.log
+*.bak.*
+.bash_history
+
+# Credentials / Secrets
+*password*
+*.env
+*.pem
+*.key
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Node/Python
+node_modules/
+__pycache__/
+
+# Documentação interna — SOMENTE LOCAL, não publicar no GitHub
+AGENTS.md
+MAGNUS_BUGS.md
+MAGNUS_REFERENCE.md
+magnus-setup-spec.md
+
+# Versões antigas / arquivos de trabalho
+files/

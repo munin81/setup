@@ -76,6 +76,8 @@ EOF_ASCII
     echo "=================================================================="
     echo -e " ${NEGRITO}6.${NC} Blindagem de Firewall Interativo (IPtables)"
     echo -e "    ${AZUL}↳${NC} Trava acesso admin (SSH/MySQL) com proteção anti-bloqueio."
+    echo -e " ${NEGRITO}10.${NC} Blindar Acesso Web do Painel (por IP)"
+    echo -e "    ${AZUL}↳${NC} Restringe o painel a IPs/blocos (URL E IP direto); mostra página de bloqueio."
     echo ""
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}                  [ MANUTENÇÃO DE BANCO ]${NC}"
@@ -135,6 +137,11 @@ while true; do
             ;;
         9)
             bash "$PROJECT_DIR/scripts/manutencao/auditoria_magnus.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        10)
+            bash "$PROJECT_DIR/scripts/instalacao/blindar_web_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

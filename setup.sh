@@ -10,13 +10,21 @@
 PROJECT_DIR="/opt/magnus-utils"
 REPO_URL="https://github.com/munin81/setup.git" # Repositório no GitHub
 
-# Se quiser fazer um "auto-update" rápido antes de rodar o menu:
-# Se o script está rodando direto do curl, ele pode clonar para /opt
-if [ ! -d "$PROJECT_DIR" ]; then
+# Auto-update resiliente — sobrevive a rewrite de histórico / repo recriado.
+# (git pull falha com "unrelated histories" nesses casos; aqui usamos
+#  fetch + reset --hard e, em último caso, re-clone do zero.)
+if [ ! -d "$PROJECT_DIR/.git" ]; then
     echo "Baixando Magnus Utilities de $REPO_URL para $PROJECT_DIR..."
+    rm -rf "$PROJECT_DIR"
     git clone "$REPO_URL" "$PROJECT_DIR" >/dev/null 2>&1
 else
-    cd "$PROJECT_DIR" && git pull origin main >/dev/null 2>&1
+    cd "$PROJECT_DIR"
+    git fetch origin >/dev/null 2>&1
+    if ! git reset --hard origin/main >/dev/null 2>&1; then
+        echo "Atualização normal falhou — re-clonando do zero..."
+        cd / && rm -rf "$PROJECT_DIR"
+        git clone "$REPO_URL" "$PROJECT_DIR" >/dev/null 2>&1
+    fi
 fi
 
 # Garante que o usuário sempre veja o menu atualizado mesmo que o script rodado pelo curl esteja em cache

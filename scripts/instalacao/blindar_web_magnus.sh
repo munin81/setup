@@ -1,38 +1,35 @@
 #!/bin/bash
 # =====================================================================
 # Magnus Utilities — blindar_web_magnus.sh
-# Versão: 1.0 (19 de junho de 2026)
+# Versão: 2.0 (19 de junho de 2026)
 # Função: Restringir o acesso WEB ao painel MagnusBilling a um ou mais
 #         IPs/blocos autorizados, exibindo uma página "Acesso Não
-#         Autorizado" para todos os demais visitantes.
+#         Autorizado" para todos os demais (domínio E IP direto).
 # Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
 #   - Rodar como root
-#   - Apache2 instalado (Debian 10/11, Apache 2.4)
+#   - Apache2 (Debian 10/11, Apache 2.4)
 #   - MagnusBilling em /var/www/html/mbilling
 #
 # Uso: bash blindar_web_magnus.sh
 #
-# Idempotência: SIM (reaplica a configuração; pode rodar várias vezes)
-# Modifica estado: SIM (configs do Apache + página de bloqueio)
-# Requer janela de manutenção: NÃO (mas recomenda-se acesso SSH ativo)
+# Idempotência: SIM (pode rodar várias vezes; reaplica e limpa resíduos)
+# Modifica estado: SIM (conf do Apache + página de bloqueio)
+# Requer janela de manutenção: NÃO
 #
-# IMPORTANTE — corrige o defeito da blindagem antiga:
-#   A blindagem por VirtualHost de domínio NÃO impedia o acesso direto
-#   pelo IP do servidor (o VirtualHost default servia o mesmo conteúdo).
-#   Esta versão fecha os DOIS caminhos:
-#     1) <Directory> global em conf-enabled (vale para todo VirtualHost
-#        por especificidade — domínio E IP direto)
-#     2) Neutraliza "Require all granted" nos vhosts que servem o painel
-#        (inclusive o 000-default que responde pelo IP)
+# COMO FECHA TODOS OS CAMINHOS (corrige o defeito do "IP direto"):
+#   - Restrição via <Location /> em conf-enabled: por precedência, a
+#     <Location> sobrepõe qualquer <Directory>, valendo para TODO vhost
+#     (domínio E IP, portas 80 e 443) — sem precisar editar <Directory>.
+#   - Torna o redirect :80 incondicional (todo HTTP -> HTTPS).
+#   - Limpa automaticamente blindagens antigas (acesso_negado.html).
+#   - Libera /.well-known/acme-challenge para a renovação do Let's Encrypt
+#     não quebrar.
 # =====================================================================
 
 set -o pipefail
 
-# ---------------------------------------------------------------------
-# Cores e logs
-# ---------------------------------------------------------------------
 VERDE='\033[0;32m'; AMARELO='\033[1;33m'; VERMELHO='\033[0;31m'
 AZUL='\033[0;34m'; NEGRITO='\033[1m'; NC='\033[0m'
 ok()    { echo -e "  ${VERDE}✓${NC} $1"; }
@@ -42,19 +39,18 @@ erro()  { echo -e "  ${VERMELHO}✗ ERRO:${NC} $1"; exit 1; }
 titulo(){ echo ""; echo -e "${NEGRITO}${AZUL}═══ $1 ═══${NC}"; }
 
 [ "$EUID" -ne 0 ] && erro "Rode como root"
-command -v apache2ctl >/dev/null 2>&1 || erro "Apache2 não encontrado neste servidor"
-[ ! -d /var/www/html/mbilling ] && warn "/var/www/html/mbilling não encontrado — confirme se o Magnus está instalado"
+command -v apache2ctl >/dev/null 2>&1 || erro "Apache2 não encontrado"
 
 clear
-titulo "BLINDAR ACESSO WEB DO PAINEL MAGNUS (por IP)"
+titulo "BLINDAR ACESSO WEB DO PAINEL MAGNUS (por IP) — v2"
 echo ""
-info "Este script tranca o painel web do Magnus para IPs/blocos autorizados."
-info "Quem não estiver na lista verá a página 'Acesso Não Autorizado'."
-warn "Vale para o acesso pelo domínio E pelo IP direto do servidor."
+info "Tranca o painel para IPs/blocos autorizados (domínio E IP direto)."
+info "Quem não estiver na lista vê a página 'Acesso Não Autorizado'."
+info "Limpa blindagens antigas e padroniza a configuração."
 echo ""
 
 # ---------------------------------------------------------------------
-# Coleta dos IPs/blocos autorizados
+# IPs/blocos autorizados
 # ---------------------------------------------------------------------
 MY_IP=$(echo "$SSH_CLIENT" | awk '{print $1}')
 [ -z "$MY_IP" ] && MY_IP="seu.ip.aqui"
@@ -63,7 +59,7 @@ info "Seu IP atual de SSH: $MY_IP"
 echo ""
 read -p "  IP/bloco autorizado 1 [$MY_IP]: " B1
 B1=${B1:-$MY_IP}
-[ -z "$B1" ] || [ "$B1" = "seu.ip.aqui" ] && erro "Informe ao menos um IP/bloco autorizado"
+{ [ -z "$B1" ] || [ "$B1" = "seu.ip.aqui" ]; } && erro "Informe ao menos um IP/bloco autorizado"
 
 ALLOWED="$B1"
 while true; do
@@ -72,30 +68,26 @@ while true; do
   ALLOWED="$ALLOWED $BX"
 done
 
-# Validação leve (IPv4 ou CIDR). configtest do Apache valida de novo no final.
 for IPB in $ALLOWED; do
   echo "$IPB" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(/[0-9]{1,2})?$' \
-    || warn "'$IPB' não parece um IPv4/CIDR válido — confira (o Apache vai validar)"
+    || warn "'$IPB' não parece IPv4/CIDR — confira (o Apache valida no final)"
 done
 
-# Nome exibido no rodapé da página de bloqueio
 read -p "  Nome para o rodapé da página de bloqueio [Magnus]: " EMPRESA
 EMPRESA=${EMPRESA:-Magnus}
 ANO=$(date +%Y)
-
-# Linha Require final (inclui loopback para não quebrar processos locais)
 REQUIRE_LINE="Require ip 127.0.0.1 ::1 $ALLOWED"
 
 echo ""
 titulo "RESUMO"
-echo "  IPs/blocos autorizados: $ALLOWED (+ 127.0.0.1/::1 local)"
-echo "  Rodapé da página:       © $ANO $EMPRESA"
+echo "  Autorizados: $ALLOWED (+ 127.0.0.1/::1)"
+echo "  Rodapé:      © $ANO $EMPRESA"
 echo ""
-read -p "  Confirma aplicar a blindagem? [s/N]: " RESP
-[[ "$RESP" =~ ^[Ss]$ ]] || erro "Operação cancelada pelo usuário"
+read -p "  Confirma aplicar/padronizar a blindagem? [s/N]: " RESP
+[[ "$RESP" =~ ^[Ss]$ ]] || erro "Cancelado pelo usuário"
 
 # ---------------------------------------------------------------------
-# Backup das configs do Apache (rollback)
+# Backup
 # ---------------------------------------------------------------------
 titulo "1. Backup das configurações"
 BKP_DIR="/root/magnus-blindagem-backup-$(date +%Y%m%d_%H%M%S)"
@@ -105,7 +97,7 @@ cp -a /etc/apache2/conf-available  "$BKP_DIR/conf-available"  2>/dev/null
 ok "Backup em $BKP_DIR"
 
 # ---------------------------------------------------------------------
-# Página de bloqueio "Acesso Não Autorizado"
+# Página de bloqueio
 # ---------------------------------------------------------------------
 titulo "2. Página de bloqueio"
 mkdir -p /var/www/html/blocked
@@ -118,37 +110,20 @@ cat > /var/www/html/blocked/index.html <<HTMLEOF
   <meta name="robots" content="noindex,nofollow">
   <title>Acesso Não Autorizado</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #0a0e16;
-      color: #e6edf3;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-    .card {
-      background: #161b24;
-      border: 1px solid #232a36;
-      border-radius: 16px;
-      padding: 56px 72px;
-      text-align: center;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.45);
-      max-width: 90%;
-    }
-    .lock { font-size: 72px; line-height: 1; margin-bottom: 28px; }
-    h1 {
-      font-size: 30px;
-      font-weight: 800;
-      margin-bottom: 28px;
-      background: linear-gradient(90deg, #ef4444, #f97316);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .footer { font-size: 13px; color: #5b6573; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; }
+    body { font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      background:#0a0e16; color:#e6edf3; display:flex; align-items:center;
+      justify-content:center; min-height:100vh; }
+    .card { background:#161b24; border:1px solid #232a36; border-radius:16px;
+      padding:56px 72px; text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.45);
+      max-width:90%; }
+    .lock { font-size:72px; line-height:1; margin-bottom:28px; }
+    h1 { font-size:30px; font-weight:800; margin-bottom:28px;
+      background:linear-gradient(90deg,#ef4444,#f97316);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text; }
+    .footer { font-size:13px; color:#5b6573; }
   </style>
 </head>
 <body>
@@ -166,27 +141,28 @@ chmod 644 /var/www/html/blocked/index.html
 ok "Página criada em /var/www/html/blocked/index.html"
 
 # ---------------------------------------------------------------------
-# Config global da blindagem (conf-enabled)
-# <Directory> aplica a TODO VirtualHost por especificidade (domínio E IP)
+# Regra global (conf-enabled): <Location /> sobrepõe qualquer <Directory>
 # ---------------------------------------------------------------------
 titulo "3. Regra global de blindagem"
 cat > /etc/apache2/conf-available/magnus-blindagem.conf <<CONFEOF
 # Magnus Utilities — Blindagem de acesso web do painel por IP
 # Gerado por blindar_web_magnus.sh — não editar manualmente.
 
-# Página de bloqueio liberada para todos (mais específica vence a restrição abaixo)
+# Página de bloqueio liberada a todos (mais específica vence a regra global)
 Alias /acesso-bloqueado /var/www/html/blocked
-<Directory /var/www/html/blocked>
+<Location /acesso-bloqueado>
     Require all granted
-</Directory>
+</Location>
 
-# Restringe o painel aos IPs autorizados (cobre acesso direto pelo IP do servidor)
-<Directory /var/www/html>
-    $REQUIRE_LINE
-</Directory>
-<Directory /var/www/html/mbilling>
-    $REQUIRE_LINE
-</Directory>
+# Exceção: validação do Let's Encrypt (senão a renovação do SSL quebra)
+<Location /.well-known/acme-challenge>
+    Require all granted
+</Location>
+
+# Restrição GLOBAL — vale para todo VirtualHost (domínio e IP, :80 e :443)
+<Location />
+    Require ip 127.0.0.1 ::1 $ALLOWED
+</Location>
 
 # Visitantes não autorizados recebem a página de bloqueio (HTTP 403)
 ErrorDocument 403 /acesso-bloqueado/index.html
@@ -195,71 +171,80 @@ a2enconf magnus-blindagem >/dev/null 2>&1
 ok "conf-available/magnus-blindagem.conf criado e habilitado"
 
 # ---------------------------------------------------------------------
-# Neutraliza "Require all granted" nos vhosts que servem o painel
-# (é isto que fecha o buraco do acesso direto pelo IP / 000-default)
+# Limpeza/normalização dos vhosts (sem tocar em <Directory>)
+#   - remove blindagem antiga acesso_negado.html
+#   - torna o redirect :80 incondicional (todo HTTP -> HTTPS)
 # ---------------------------------------------------------------------
-titulo "4. Ajuste dos VirtualHosts que servem o painel"
-ALTERADOS=0
+titulo "4. Limpeza de blindagens antigas e normalização"
+LIMPOS=0
 for VH in /etc/apache2/sites-enabled/*.conf; do
   [ -e "$VH" ] || continue
-  REAL=$(readlink -f "$VH")
-  [ -f "$REAL" ] || continue
-  if grep -qE "DocumentRoot[[:space:]]+/var/www/html" "$REAL" && grep -q "Require all granted" "$REAL"; then
-    sed -i "s|Require all granted|$REQUIRE_LINE|g" "$REAL"
-    ok "Ajustado: $(basename "$REAL")"
-    ALTERADOS=$((ALTERADOS+1))
+  REAL=$(readlink -f "$VH"); [ -f "$REAL" ] || continue
+  grep -qE "DocumentRoot[[:space:]]+/var/www/html" "$REAL" || continue
+
+  ALTEROU=0
+  # remove bloco <Location /acesso_negado.html> ... </Location>
+  if grep -q "acesso_negado" "$REAL"; then
+    sed -i '/<Location \/acesso_negado.html>/,/<\/Location>/d' "$REAL"
+    sed -i '\#Alias /acesso_negado.html#d' "$REAL"
+    sed -i '\#ErrorDocument 403 /acesso_negado.html#d' "$REAL"
+    ALTEROU=1
   fi
+  # redirect :80 incondicional (remove a condição por nome)
+  if grep -q "RewriteCond %{SERVER_NAME}" "$REAL"; then
+    sed -i '/RewriteCond %{SERVER_NAME}/d' "$REAL"
+    ALTEROU=1
+  fi
+  [ "$ALTEROU" -eq 1 ] && { ok "Normalizado: $(basename "$REAL")"; LIMPOS=$((LIMPOS+1)); }
 done
-[ "$ALTERADOS" -eq 0 ] && info "Nenhum vhost com 'Require all granted' no painel (a regra global já cobre)"
+[ "$LIMPOS" -eq 0 ] && info "Nenhuma blindagem antiga encontrada (nada a limpar)"
 
 # ---------------------------------------------------------------------
-# Valida e aplica (com deadman switch anti-lockout do painel)
+# Validação + aplicação com deadman switch
 # ---------------------------------------------------------------------
 titulo "5. Validação e aplicação"
-if ! apache2ctl configtest 2>&1 | grep -qi "Syntax OK"; then
-  warn "configtest falhou — REVERTENDO tudo"
+reverter() {
   a2disconf magnus-blindagem >/dev/null 2>&1
   cp -a "$BKP_DIR/sites-available/." /etc/apache2/sites-available/ 2>/dev/null
   cp -a "$BKP_DIR/conf-available/."  /etc/apache2/conf-available/  2>/dev/null
+  systemctl reload apache2 2>/dev/null
+}
+
+if ! apache2ctl configtest 2>&1 | grep -qi "Syntax OK"; then
+  warn "configtest falhou — REVERTENDO"
+  reverter
   apache2ctl configtest
-  erro "Sintaxe inválida do Apache — nada foi aplicado. Backup em $BKP_DIR"
+  erro "Sintaxe inválida — nada aplicado. Backup em $BKP_DIR"
 fi
 ok "Sintaxe do Apache OK"
 
-systemctl reload apache2 && ok "Apache recarregado" || warn "Falha ao recarregar Apache"
+systemctl reload apache2 && ok "Apache recarregado" || warn "Falha ao recarregar"
 
 echo ""
-warn "TESTE AGORA no navegador (atualize a página do painel pelo seu IP autorizado)."
-warn "Confirme também, de outra rede/celular, que aparece 'Acesso Não Autorizado'."
+warn "TESTE AGORA: do seu IP autorizado o painel deve abrir;"
+warn "de fora (4G/TOR), domínio E IP devem mostrar 'Acesso Não Autorizado'."
 echo ""
-read -t 60 -p "  Você AINDA consegue acessar o painel do IP autorizado? [s/N] (60s p/ auto-reverter): " OK_WEB || true
-
-if [[ ! "$OK_WEB" =~ ^[Ss]$ ]]; then
-  echo ""
-  warn "Tempo esgotado ou negado — REVERTENDO a blindagem..."
-  a2disconf magnus-blindagem >/dev/null 2>&1
-  cp -a "$BKP_DIR/sites-available/." /etc/apache2/sites-available/ 2>/dev/null
-  cp -a "$BKP_DIR/conf-available/."  /etc/apache2/conf-available/  2>/dev/null
-  systemctl reload apache2
-  warn "Blindagem revertida. Acesso restaurado. Backup preservado em $BKP_DIR"
+read -t 60 -p "  Você AINDA acessa o painel do IP autorizado? [s/N] (60s p/ auto-reverter): " OKW || true
+if [[ ! "$OKW" =~ ^[Ss]$ ]]; then
+  echo ""; warn "Tempo esgotado ou negado — REVERTENDO..."
+  reverter
+  warn "Revertido. Acesso restaurado. Backup em $BKP_DIR"
   exit 1
 fi
 
 # ---------------------------------------------------------------------
 # Conclusão
 # ---------------------------------------------------------------------
-titulo "BLINDAGEM APLICADA"
+titulo "BLINDAGEM PADRONIZADA"
 echo ""
-echo -e "  ${VERDE}${NEGRITO}✓ Painel restrito aos IPs autorizados${NC}"
+echo -e "  ${VERDE}${NEGRITO}✓ Painel restrito aos IPs autorizados (domínio e IP, :80 e :443)${NC}"
 echo ""
 echo "  Autorizados:  $ALLOWED (+ local)"
 echo "  Página 403:   /var/www/html/blocked/index.html"
 echo "  Config:       /etc/apache2/conf-available/magnus-blindagem.conf"
 echo "  Backup:       $BKP_DIR"
 echo ""
-echo -e "${NEGRITO}  PARA REMOVER A BLINDAGEM depois:${NC}"
-echo "    a2disconf magnus-blindagem"
-echo "    cp -a $BKP_DIR/sites-available/. /etc/apache2/sites-available/"
-echo "    systemctl reload apache2"
+echo -e "${NEGRITO}  PARA REMOVER depois:${NC}"
+echo "    a2disconf magnus-blindagem && systemctl reload apache2"
 echo ""
 exit 0

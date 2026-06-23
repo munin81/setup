@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- feat(banco): criar_usuario_db.sh — cria/atualiza usuário MySQL por IP de origem com senha oculta (read -s, via stdin, fora do ps aux), escopo full ou só mbilling, nada gravado em log
 - feat(seguranca): blindar_web_magnus.sh v2 — restrição global via <Location />, padroniza/limpa blindagens antigas (acesso_negado.html), torna o redirect :80 incondicional e libera /.well-known/acme-challenge (não quebra renovação SSL)
 - feat(seguranca): blindar_web_magnus.sh — restringe o painel web a IPs/blocos autorizados, cobrindo o acesso pelo domínio E pelo IP direto, com página "Acesso Não Autorizado"
 - fix(seguranca): correções críticas — deletar_cdr_oferta atômico com backup; senha fora do ps aux em auditoria/migrar; iptables com persistência no reboot e RTP 10000-60000

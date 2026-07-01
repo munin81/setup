@@ -69,6 +69,12 @@ if [ -z "$START_DATE" ] || [ -z "$END_DATE" ]; then
     exit 1
 fi
 
+# Valida formato AAAA-MM-DD (impede injeção SQL via as datas)
+for D in "$START_DATE" "$END_DATE"; do
+    echo "$D" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' \
+      || { echo "Erro: data '$D' fora do formato AAAA-MM-DD. Saindo."; exit 1; }
+done
+
 echo "------------------------------------------------------------------"
 echo "Buscando usuários inativos (active=0) criados entre $START_DATE e $END_DATE..."
 

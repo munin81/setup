@@ -84,9 +84,11 @@ mysql_local() {
   MYSQL_PWD="$SENHA_ROOT_LOCAL" mysql --user=root "$@"
 }
 
+# sshpass -e lê a senha da env SSHPASS (visível só p/ root em /proc/PID/environ),
+# em vez de -p, que exporia a senha no ps aux para qualquer usuário local.
 ssh_origem() {
-  sshpass -p "$ORIGEM_PASS" ssh \
-    -o StrictHostKeyChecking=no \
+  SSHPASS="$ORIGEM_PASS" sshpass -e ssh \
+    -o StrictHostKeyChecking=accept-new \
     -o ConnectTimeout=15 \
     -p "$ORIGEM_PORT" \
     "$ORIGEM_USER@$ORIGEM_IP" "$@"
@@ -95,8 +97,8 @@ ssh_origem() {
 rsync_origem() {
   local SRC="$1"
   local DST="$2"
-  sshpass -p "$ORIGEM_PASS" rsync -az --delete \
-    -e "ssh -o StrictHostKeyChecking=no -p $ORIGEM_PORT" \
+  SSHPASS="$ORIGEM_PASS" sshpass -e rsync -az --delete \
+    -e "ssh -o StrictHostKeyChecking=accept-new -p $ORIGEM_PORT" \
     "$ORIGEM_USER@$ORIGEM_IP:$SRC" "$DST"
 }
 
@@ -194,15 +196,19 @@ echo ""
 info "Usuário ADMIN do MySQL (para DBeaver):"
 read -p "  Nome do usuário admin [admin_user]: " ADMIN_USER
 ADMIN_USER=${ADMIN_USER:-admin_user}
+echo "$ADMIN_USER" | grep -qE '^[A-Za-z0-9_]+$' || erro "Nome de usuário inválido (use A-Z a-z 0-9 _)"
 read -p "  IP de origem (para criar $ADMIN_USER@IP): " ADMIN_IP
 [ -z "$ADMIN_IP" ] && erro "IP admin é obrigatório"
+echo "$ADMIN_IP" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || erro "IP admin inválido (use IPv4)"
 
 echo ""
 info "Usuário API do MySQL (N8N/automações — opcional):"
 read -p "  Nome do usuário API (ENTER para PULAR): " API_USER
 if [ -n "$API_USER" ]; then
+  echo "$API_USER" | grep -qE '^[A-Za-z0-9_]+$' || erro "Nome de usuário API inválido (use A-Z a-z 0-9 _)"
   read -p "  IP de origem (para criar $API_USER@IP): " API_IP
   [ -z "$API_IP" ] && erro "IP API é obrigatório se nome foi informado"
+  echo "$API_IP" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || erro "IP API inválido (use IPv4)"
 fi
 
 echo ""
@@ -397,7 +403,7 @@ for T in pkg_password_reset pkg_tickets pkg_ticket_messages; do
 done
 
 # 4) Salvar senha root em /root/passwordMysql.log
-echo "$SENHA_ROOT_LOCAL" > /root/passwordMysql.log
+( umask 077; echo "$SENHA_ROOT_LOCAL" > /root/passwordMysql.log )
 chmod 600 /root/passwordMysql.log
 ok "Senha root salva em /root/passwordMysql.log (chmod 600)"
 
@@ -405,6 +411,7 @@ ok "Senha root salva em /root/passwordMysql.log (chmod 600)"
 echo ""
 read -sp "  Senha para $ADMIN_USER@$ADMIN_IP (sem caracteres especiais \$!'\"\\ espaço): " SENHA_ADMIN; echo ""
 [ -z "$SENHA_ADMIN" ] && erro "Senha do usuário admin é obrigatória"
+echo "$SENHA_ADMIN" | grep -qE "^[A-Za-z0-9@#%._+-]+$" || erro "Senha com caractere não permitido (use A-Z a-z 0-9 @ # % . _ + -)"
 
 mysql_local 2>/dev/null <<EOSQL && ok "$ADMIN_USER@$ADMIN_IP criado" || warn "Erro ao criar $ADMIN_USER@$ADMIN_IP"
 DROP USER IF EXISTS '$ADMIN_USER'@'$ADMIN_IP';
@@ -417,6 +424,7 @@ EOSQL
 if [ -n "$API_USER" ]; then
   echo ""
   read -sp "  Senha para $API_USER@$API_IP (sem caracteres especiais \$!'\"\\ espaço): " SENHA_API; echo ""
+  if [ -n "$SENHA_API" ]; then echo "$SENHA_API" | grep -qE "^[A-Za-z0-9@#%._+-]+$" || erro "Senha API com caractere não permitido (use A-Z a-z 0-9 @ # % . _ + -)"; fi
   [ -z "$SENHA_API" ] && warn "Senha do usuário API vazia — pulando" || {
     mysql_local 2>/dev/null <<EOSQL && ok "$API_USER@$API_IP criado" || warn "Erro ao criar $API_USER@$API_IP"
 DROP USER IF EXISTS '$API_USER'@'$API_IP';

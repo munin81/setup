@@ -169,6 +169,7 @@ case "$MODO_DID" in
     read -p "  DID INICIAL (ex: 551153500000): " DID_START
     read -p "  DID FINAL   (ex: 551153500900): " DID_END
     [ -z "$DID_START" ] || [ -z "$DID_END" ] && erro "DID inicial e final são obrigatórios"
+    { echo "$DID_START" | grep -qE '^[0-9]+$' && echo "$DID_END" | grep -qE '^[0-9]+$'; } || erro "DIDs devem conter apenas dígitos"
     [ "$DID_START" -gt "$DID_END" ] 2>/dev/null && erro "DID inicial não pode ser maior que o final"
     CONDICAO_WHERE="did >= '${DID_START}' AND did <= '${DID_END}'"
     DESCRICAO_FILTRO="Bloco: $DID_START → $DID_END"
@@ -176,20 +177,23 @@ case "$MODO_DID" in
   2)
     read -p "  DID (ex: 551153500001): " DID_UNICO
     [ -z "$DID_UNICO" ] && erro "DID é obrigatório"
+    echo "$DID_UNICO" | grep -qE '^[0-9]+$' || erro "DID deve conter apenas dígitos"
     CONDICAO_WHERE="did = '${DID_UNICO}'"
     DESCRICAO_FILTRO="DID único: $DID_UNICO"
     ;;
   3)
     read -p "  Caminho do arquivo .txt com DIDs: " ARQUIVO_DIDS
     [ ! -f "$ARQUIVO_DIDS" ] && erro "Arquivo $ARQUIVO_DIDS não encontrado"
-    LISTA_DIDS=$(cat "$ARQUIVO_DIDS" | tr '\n' ',' | sed 's/,$//' | sed "s/\([0-9]*\)/'\1'/g")
-    [ -z "$LISTA_DIDS" ] && erro "Arquivo vazio ou em formato inválido"
+    # Extrai APENAS sequências numéricas (ignora qualquer outro conteúdo) — anti-injeção
+    LISTA_DIDS=$(grep -oE '[0-9]+' "$ARQUIVO_DIDS" | sed "s/.*/'&'/" | tr '\n' ',' | sed 's/,$//')
+    [ -z "$LISTA_DIDS" ] && erro "Arquivo sem DIDs numéricos válidos"
     CONDICAO_WHERE="did IN (${LISTA_DIDS})"
     DESCRICAO_FILTRO="Lista de arquivo: $ARQUIVO_DIDS"
     ;;
   4)
     read -p "  ID do cliente ATUAL (Dono de Origem): " SOURCE_ID_USER
     [ -z "$SOURCE_ID_USER" ] && erro "ID do cliente de origem é obrigatório"
+    echo "$SOURCE_ID_USER" | grep -qE '^[0-9]+$' || erro "ID de origem deve ser numérico"
     
     SOURCE_USER_INFO=$(mysql_run -N -e \
       "SELECT CONCAT(username, ' (', email, ')') FROM pkg_user WHERE id = ${SOURCE_ID_USER};" 2>/dev/null)
@@ -218,6 +222,7 @@ esac
 echo ""
 read -p "  ID do usuário DESTINO no Magnus (novo dono): " TARGET_ID_USER
 [ -z "$TARGET_ID_USER" ] && erro "ID do usuário destino é obrigatório"
+echo "$TARGET_ID_USER" | grep -qE '^[0-9]+$' || erro "ID destino deve ser numérico"
 
 USER_INFO=$(mysql_run -N -e \
   "SELECT CONCAT(username, ' (', email, ')') FROM pkg_user WHERE id = ${TARGET_ID_USER};" 2>/dev/null)

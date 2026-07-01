@@ -42,6 +42,13 @@ ADMIN_BLOCK_1=${ADMIN_BLOCK_1:-$MY_IP}
 
 read -p "Informe o Bloco/IP Admin 2 [Opcional, Enter para pular]: " ADMIN_BLOCK_2
 
+# Validação IPv4/CIDR — impede injeção de comando via -s (entrada não confiável)
+valida_bloco() { echo "$1" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(/[0-9]{1,2})?$'; }
+valida_bloco "$ADMIN_BLOCK_1" || { echo "ERRO: Bloco/IP Admin 1 inválido ('$ADMIN_BLOCK_1'). Use IPv4 ou CIDR."; exit 1; }
+if [ -n "$ADMIN_BLOCK_2" ]; then
+    valida_bloco "$ADMIN_BLOCK_2" || { echo "ERRO: Bloco/IP Admin 2 inválido ('$ADMIN_BLOCK_2'). Use IPv4 ou CIDR."; exit 1; }
+fi
+
 echo "[1/15] Limpando regras existentes e setando policy ACCEPT temporária..."
 iptables -P INPUT ACCEPT
 iptables -P FORWARD ACCEPT
@@ -60,15 +67,15 @@ echo "[4/15] ICMP echo-request ACCEPT..."
 iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
 
 echo "[5/15] SSH 22022 só dos blocos Admin..."
-iptables -A INPUT -p tcp --dport 22022 -s $ADMIN_BLOCK_1 -j ACCEPT
+iptables -A INPUT -p tcp --dport 22022 -s "$ADMIN_BLOCK_1" -j ACCEPT
 if [ -n "$ADMIN_BLOCK_2" ]; then
-    iptables -A INPUT -p tcp --dport 22022 -s $ADMIN_BLOCK_2 -j ACCEPT
+    iptables -A INPUT -p tcp --dport 22022 -s "$ADMIN_BLOCK_2" -j ACCEPT
 fi
 
 echo "[6/15] MySQL 3306 só dos blocos Admin (API)..."
-iptables -A INPUT -p tcp --dport 3306 -s $ADMIN_BLOCK_1 -j ACCEPT
+iptables -A INPUT -p tcp --dport 3306 -s "$ADMIN_BLOCK_1" -j ACCEPT
 if [ -n "$ADMIN_BLOCK_2" ]; then
-    iptables -A INPUT -p tcp --dport 3306 -s $ADMIN_BLOCK_2 -j ACCEPT
+    iptables -A INPUT -p tcp --dport 3306 -s "$ADMIN_BLOCK_2" -j ACCEPT
 fi
 
 echo "[7/15] HTTP 80 público..."

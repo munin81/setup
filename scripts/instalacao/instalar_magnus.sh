@@ -6,7 +6,8 @@
 # Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
-#   - Servidor Debian 10/11 recém-instalado (limpo)
+#   - Servidor Debian 11/12 recém-instalado (limpo)
+#     (o instalador oficial atual aceita apenas Debian 11 e 12)
 #
 # Uso: bash instalar_magnus.sh
 #
@@ -24,6 +25,16 @@ else
 fi
 
 titulo "Instalação Oficial do MagnusBilling 7"
+
+# Confere a versão do Debian ANTES de baixar (instalador oficial: só 11 e 12)
+if [ -f /etc/os-release ]; then
+  . /etc/os-release
+  case "$VERSION_ID" in
+    11|12) ok "Debian $VERSION_ID detectado — suportado pelo instalador oficial." ;;
+    10)    warn "Debian 10 detectado — o instalador oficial ATUAL não aceita mais Debian 10." ;;
+    *)     warn "Sistema '$PRETTY_NAME' — o instalador oficial exige Debian 11 ou 12 e pode recusar." ;;
+  esac
+fi
 
 confirma "Esta ação irá baixar e executar o script de instalação oficial do Magnus. Recomenda-se rodar APENAS em um servidor limpo. Deseja continuar?"
 

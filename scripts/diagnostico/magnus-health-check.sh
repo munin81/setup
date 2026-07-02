@@ -7,7 +7,7 @@
 #
 # Pré-requisitos:
 #   - MagnusBilling 7.x
-#   - Debian 10/11
+#   - Debian 10/11/12
 #
 # Uso: bash magnus-health-check.sh
 #

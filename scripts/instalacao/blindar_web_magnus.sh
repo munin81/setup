@@ -9,7 +9,7 @@
 #
 # Pré-requisitos:
 #   - Rodar como root
-#   - Apache2 (Debian 10/11, Apache 2.4)
+#   - Apache2 (Debian 10/11/12, Apache 2.4)
 #   - MagnusBilling em /var/www/html/mbilling
 #
 # Uso: bash blindar_web_magnus.sh

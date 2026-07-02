@@ -497,7 +497,7 @@ if [ $NO_RESTART -eq 1 ]; then
   warn "Flag --no-restart ativa — pulando reinício automático"
   info "Para subir manualmente depois:"
   echo "    systemctl restart mariadb"
-  echo "    systemctl restart php7.3-fpm   # ou php-fpm conforme versão"
+  echo "    systemctl restart php7.4-fpm   # ajuste à sua versão: php7.3 (Deb10), php7.4 (Deb11), php8.2 (Deb12)"
   echo "    systemctl restart apache2"
   echo "    systemctl restart asterisk"
   REINICIOU=0
@@ -514,8 +514,10 @@ else
     systemctl restart mariadb 2>/dev/null && ok "MariaDB OK" || warn "MariaDB com aviso"
 
     info "Reiniciando PHP-FPM..."
-    if systemctl restart php7.3-fpm 2>/dev/null; then
-      ok "php7.3-fpm OK"
+    # Detecta a versão instalada (php7.3/7.4/8.2...) — varia por Debian (10/11/12)
+    PHPFPM_SVC=$(systemctl list-unit-files --type=service 2>/dev/null | grep -oE "php[0-9.]*-fpm" | head -1)
+    if [ -n "$PHPFPM_SVC" ] && systemctl restart "$PHPFPM_SVC" 2>/dev/null; then
+      ok "$PHPFPM_SVC OK"
     elif systemctl restart php-fpm 2>/dev/null; then
       ok "php-fpm OK"
     else

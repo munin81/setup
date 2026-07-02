@@ -55,6 +55,12 @@ show_menu() {
 EOF_ASCII
     echo -e "${NC}"
     echo -e "  Bem-vindo ao ${NEGRITO}Magnus Utilities${NC} - Utilitários MagnusBilling 7.x"
+    echo ""
+    echo -e "${VERMELHO}${NEGRITO}  ══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${VERMELHO}${NEGRITO}   ⚠  SOFTWARE EM ALFA — USE POR SUA CONTA E RISCO${NC}"
+    echo -e "${VERMELHO}   Pode causar quebras no sistema (banco, Asterisk, Apache).${NC}"
+    echo -e "${VERMELHO}   Recomendado APENAS em instalação NOVA ou de TESTES.${NC}"
+    echo -e "${VERMELHO}${NEGRITO}  ══════════════════════════════════════════════════════════════${NC}"
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}                 [ DIAGNÓSTICO E AUDITORIA ]${NC}"
     echo "=================================================================="

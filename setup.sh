@@ -102,6 +102,8 @@ EOF_ASCII
     echo -e "    ${AZUL}↳${NC} Exclui histórico de usuários cancelados por período."
     echo -e " ${NEGRITO}11.${NC} Criar Usuário de Banco (DBeaver / acesso remoto)"
     echo -e "    ${AZUL}↳${NC} Cria usuário MySQL por IP, senha oculta, sem expor dados."
+    echo -e " ${NEGRITO}12.${NC} Gerar Relatório CSV de CDR"
+    echo -e "    ${AZUL}↳${NC} Exporta histórico de chamadas (CDR) por usuário e período."
     echo ""
     echo -e " ${NEGRITO}0.${NC} Sair"
     echo "=================================================================="
@@ -163,6 +165,11 @@ while true; do
             ;;
         11)
             bash "$PROJECT_DIR/scripts/manutencao/criar_usuario_db.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        12)
+            bash "$PROJECT_DIR/scripts/relatorios/gerar_csv_cdr.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

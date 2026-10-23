@@ -111,23 +111,48 @@ LOCAL_DB_NAME=${LOCAL_DB_NAME:-mbilling}
 if [ -z "$LOCAL_DB_PASS" ]; then
   erro "Não foi possível ler a senha do banco em $DB_CONF"
 fi
-ok "Configuração local do banco lida de $DB_CONF (usuário: $LOCAL_DB_USER)"
+ok "Configuração interna do MagnusBilling lida de $DB_CONF (usuário da aplicação: $LOCAL_DB_USER)"
 
-# Senha root do MariaDB local
-if [ -f "/root/passwordMysql.log" ]; then
+# Conexão root com o MariaDB local (auto-detecta unix_socket sem senha no Debian/MB8)
+LOCAL_ROOT_PW=""
+if mysql -u root -e "SELECT 1;" >/dev/null 2>&1; then
+  ok "Acesso root ao MariaDB local autenticado via unix_socket (sem necessidade de senha)."
+  mysql_local() {
+    mysql -u root "$@"
+  }
+  mysqldump_local() {
+    mysqldump -u root "$@"
+  }
+elif [ -f "/root/passwordMysql.log" ]; then
   LOCAL_ROOT_PW=$(cat /root/passwordMysql.log | tr -d '[:space:]')
   ok "Senha root do MariaDB local lida de /root/passwordMysql.log"
+  mysql_local() {
+    MYSQL_PWD="$LOCAL_ROOT_PW" mysql -u root "$@"
+  }
+  mysqldump_local() {
+    MYSQL_PWD="$LOCAL_ROOT_PW" mysqldump -u root "$@"
+  }
 else
-  read -sp "  Informe a senha do usuário root do MariaDB local: " LOCAL_ROOT_PW
+  read -sp "  Informe a senha do usuário root do MariaDB local (ou Enter se não houver senha): " LOCAL_ROOT_PW
   echo ""
+  mysql_local() {
+    if [ -n "$LOCAL_ROOT_PW" ]; then
+      MYSQL_PWD="$LOCAL_ROOT_PW" mysql -u root "$@"
+    else
+      mysql -u root "$@"
+    fi
+  }
+  mysqldump_local() {
+    if [ -n "$LOCAL_ROOT_PW" ]; then
+      MYSQL_PWD="$LOCAL_ROOT_PW" mysqldump -u root "$@"
+    else
+      mysqldump -u root "$@"
+    fi
+  }
 fi
 
-mysql_local() {
-  MYSQL_PWD="$LOCAL_ROOT_PW" mysql -u root "$@"
-}
-
-mysql_local -e "SELECT 1;" >/dev/null 2>&1 || erro "Não foi possível conectar como root no MariaDB local. Verifique a senha."
-ok "Conexão com o banco local como root validada."
+mysql_local -e "SELECT 1;" >/dev/null 2>&1 || erro "Não foi possível conectar como root no MariaDB local. Verifique o serviço MariaDB."
+ok "Conexão com o banco local validada."
 
 # =====================================================================
 # FASE 2: Coleta de Parâmetros e Teste com o Servidor de Origem (MB7)
@@ -224,20 +249,20 @@ mkdir -p "$BKP_DIR"
 chmod 700 "$BKP_DIR"
 
 info "Criando backup do banco limpo do MB8 em $BKP_DIR..."
-MYSQL_PWD="$LOCAL_ROOT_PW" mysqldump --single-transaction --triggers mbilling | gzip > "$BKP_DIR/mbilling8-clean.sql.gz" || erro "Falha ao criar backup do banco local."
+mysqldump_local --single-transaction --triggers mbilling | gzip > "$BKP_DIR/mbilling8-clean.sql.gz" || erro "Falha ao criar backup do banco local."
 ok "Backup do banco MB8 limpo salvo com sucesso."
 
 # Salvar tabelas exclusivas do MB8 (ex: Magnus Sentinel)
 MB8_SENTINEL_TABLES=$(mysql_local -N -e "SHOW TABLES FROM mbilling LIKE 'pkg_magnus_sentinel_%';" 2>/dev/null)
 if [ -n "$MB8_SENTINEL_TABLES" ]; then
   info "Preservando tabelas do Magnus Sentinel detectadas no MB8..."
-  MYSQL_PWD="$LOCAL_ROOT_PW" mysqldump mbilling $MB8_SENTINEL_TABLES > "$BKP_DIR/mb8_sentinel_tables.sql" 2>/dev/null || true
+  mysqldump_local mbilling $MB8_SENTINEL_TABLES > "$BKP_DIR/mb8_sentinel_tables.sql" 2>/dev/null || true
   ok "Tabelas do Magnus Sentinel preservadas para restauração."
 fi
 
 # Salvar chaves nativas de configuração do MB8 para merge
 info "Preservando catálogo nativo de configurações do MB8..."
-MYSQL_PWD="$LOCAL_ROOT_PW" mysqldump --no-create-info --insert-ignore mbilling pkg_configuration > "$BKP_DIR/mb8_clean_pkg_configuration.sql" 2>/dev/null || true
+mysqldump_local --no-create-info --insert-ignore mbilling pkg_configuration > "$BKP_DIR/mb8_clean_pkg_configuration.sql" 2>/dev/null || true
 ok "Snapshot de configurações nativas do MB8 preservado."
 
 info "Criando backup das configurações do Asterisk 20 em $BKP_DIR..."

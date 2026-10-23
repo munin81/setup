@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- feat(firewall): liberar_ip_firewall.sh (Opção 15) — libera IP de servidor (MB8) no firewall (firewalld/iptables) e fail2ban para SSH (portas 22 e 22022) ou acesso total para migração
 - feat(migracao): migrar_mb7_para_mb8.sh — migração automatizada side-by-side de MB7 para MB8: preservação de tabelas Magnus Sentinel, merge inteligente de parâmetros de configuração nativos do MB8, detecção do módulo app_mbilling, regeneração automática de peers PJSIP e validação cruzada de contagem de registros pós-migração
 - feat(mb8): suporte oficial ao MagnusBilling 8 (Asterisk 20 + PJSIP) no instalar_magnus.sh com repositório oficial magnussolution/magnusbilling
 - feat(setup): menu atualizado com opções dedicadas para MB8 e MB7 legado

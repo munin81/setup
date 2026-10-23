@@ -119,6 +119,8 @@ EOF_ASCII
     echo -e "    ${AZUL}↳${NC} Trava acesso admin (SSH/MySQL) com proteção anti-bloqueio."
     echo -e " ${NEGRITO}10.${NC} Blindar Acesso Web do Painel (por IP)"
     echo -e "    ${AZUL}↳${NC} Restringe o painel a IPs/blocos (URL E IP direto); mostra página de bloqueio."
+    echo -e " ${NEGRITO}15.${NC} Liberar IP no Firewall (SSH / Migração)"
+    echo -e "    ${AZUL}↳${NC} Libera o IP de outro servidor (ex: MB8) no firewalld/iptables e fail2ban."
     echo ""
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}                  [ MANUTENÇÃO DE BANCO ]${NC}"
@@ -209,6 +211,11 @@ while true; do
             ;;
         14)
             bash "$PROJECT_DIR/scripts/manutencao/alterar_senha_web.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        15)
+            bash "$PROJECT_DIR/scripts/manutencao/liberar_ip_firewall.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

@@ -72,10 +72,12 @@ EOF_ASCII
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}                 [ INSTALAÇÃO E MIGRAÇÃO ]${NC}"
     echo "=================================================================="
-    echo -e " ${NEGRITO}2.${NC} Instalação Oficial do MagnusBilling 7"
-    echo -e "    ${AZUL}↳${NC} Baixa e executa o instalador limpo direto do GitHub oficial."
-    echo -e " ${NEGRITO}3.${NC} Migrar Dados de Outro Servidor Magnus"
-    echo -e "    ${AZUL}↳${NC} Conecta via SSH, copia banco, áudios e configurações base."
+    echo -e " ${NEGRITO}2.${NC} Instalação Oficial do MagnusBilling (MB8 ou MB7)"
+    echo -e "    ${AZUL}↳${NC} Instalação limpa do MagnusBilling 8 (Asterisk 20 + PJSIP) ou MB7."
+    echo -e " ${NEGRITO}3.${NC} Migrar MagnusBilling 7 para MagnusBilling 8"
+    echo -e "    ${AZUL}↳${NC} Conecta via SSH no MB7, migra dados, converte PJSIP e UpdateMysql."
+    echo -e " ${NEGRITO}13.${NC} Migrar Dados entre Servidores MagnusBilling 7 (Legado)"
+    echo -e "    ${AZUL}↳${NC} Conecta via SSH, copia banco e configurações chan_sip entre MB7."
     echo ""
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}               [ CONFIGURAÇÃO DE SERVIDOR WEB ]${NC}"
@@ -124,7 +126,7 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         3)
-            bash "$PROJECT_DIR/scripts/migracao/migrar_magnus.sh"
+            bash "$PROJECT_DIR/scripts/migracao/migrar_mb7_para_mb8.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
@@ -170,6 +172,11 @@ while true; do
             ;;
         12)
             bash "$PROJECT_DIR/scripts/relatorios/gerar_csv_cdr.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        13)
+            bash "$PROJECT_DIR/scripts/migracao/migrar_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

@@ -5,9 +5,9 @@
 > Estes scripts podem **causar quebras no sistema** (banco de dados, Asterisk, Apache, firewall). O autor **não se responsabiliza** por perda de dados ou indisponibilidade.
 > Use preferencialmente em uma **instalação NOVA ou de TESTES**. Em produção, **somente** com backup completo e janela de manutenção.
 
-Coleção de scripts e procedimentos versionados que padronizam a instalação, customização, troubleshooting e manutenção de servidores **MagnusBilling 7.x sobre Debian 11/12** em operações de VoIP.
+Coleção de scripts e procedimentos versionados que padronizam a instalação, customização, troubleshooting e manutenção de servidores **MagnusBilling 8 (Asterisk 20 + PJSIP) e 7.x** sobre Debian e Ubuntu em operações de VoIP.
 
-> **Compatibilidade:** o instalador oficial do MagnusBilling aceita apenas **Debian 11 (bullseye)** e **Debian 12 (bookworm)** — no Debian 12 o PHP instalado é o 8.2. Os utilitários deste pacote detectam a versão do PHP automaticamente e funcionam nas duas. Servidores **Debian 10** já instalados continuam atendidos pelas ferramentas de manutenção/diagnóstico, mas a instalação nova em Debian 10 não é mais suportada pelo instalador oficial.
+> **Compatibilidade:** O pacote suporta a instalação e manutenção tanto do **MagnusBilling 8** (oficial: Debian 11, 12, 13 e Ubuntu LTS com Asterisk 20 e PJSIP) quanto do **MagnusBilling 7** (Debian 11/12 com Asterisk 13 e chan_sip). Inclui ferramenta automatizada para migração segura side-by-side de MagnusBilling 7 para MagnusBilling 8 com conversão de banco e PJSIP via `UpdateMysql`.
 
 ## Instalação Rápida (Interativa)
 

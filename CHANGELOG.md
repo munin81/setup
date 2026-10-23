@@ -1,7 +1,9 @@
 # Changelog
 
 ## [Unreleased]
-- feat(debian12): suporte a Debian 12 (bookworm) — migrar detecta a versão do php-fpm automaticamente (7.3/7.4/8.2), instalar_magnus confere a versão do SO antes de baixar o instalador oficial (que aceita só Debian 11/12), README e cabeçalhos atualizados
+- feat(mb8): suporte oficial ao MagnusBilling 8 (Asterisk 20 + PJSIP) no instalar_magnus.sh com repositório oficial magnussolution/magnusbilling
+- feat(migracao): migrar_mb7_para_mb8.sh — migração automatizada side-by-side de MB7 para MB8 com conversão de banco e troncos PJSIP via UpdateMysql, cópia segura de áudios e preservação da arquitetura Asterisk 20
+- feat(setup): menu atualizado com opções dedicadas para MB8 e MB7 legado
 - feat(banco): criar_usuario_db.sh — cria/atualiza usuário MySQL por IP de origem com senha oculta (read -s, via stdin, fora do ps aux), escopo full ou só mbilling, nada gravado em log
 - feat(seguranca): blindar_web_magnus.sh v2 — restrição global via <Location />, padroniza/limpa blindagens antigas (acesso_negado.html), torna o redirect :80 incondicional e libera /.well-known/acme-challenge (não quebra renovação SSL)
 - feat(seguranca): blindar_web_magnus.sh — restringe o painel web a IPs/blocos autorizados, cobrindo o acesso pelo domínio E pelo IP direto, com página "Acesso Não Autorizado"

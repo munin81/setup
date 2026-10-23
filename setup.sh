@@ -10,26 +10,51 @@
 PROJECT_DIR="/opt/magnus-utils"
 REPO_URL="https://github.com/munin81/setup.git" # Repositório no GitHub
 
+# Verifica se o git está instalado (servidores mínimos Debian/Ubuntu vêm sem git)
+if ! command -v git >/dev/null 2>&1; then
+    echo "Instalando pacote 'git' necessário para baixar os utilitários..."
+    if command -v apt-get >/dev/null 2>&1; then
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -y >/dev/null 2>&1
+        apt-get install -y git ca-certificates >/dev/null 2>&1
+    fi
+    if ! command -v git >/dev/null 2>&1; then
+        echo "Erro: O git não está instalado e não pôde ser instalado automaticamente."
+        echo "Execute manualmente: apt update && apt install -y git"
+        exit 1
+    fi
+fi
+
 # Auto-update resiliente — sobrevive a rewrite de histórico / repo recriado.
-# (git pull falha com "unrelated histories" nesses casos; aqui usamos
-#  fetch + reset --hard e, em último caso, re-clone do zero.)
 if [ ! -d "$PROJECT_DIR/.git" ]; then
     echo "Baixando Magnus Utilities de $REPO_URL para $PROJECT_DIR..."
     rm -rf "$PROJECT_DIR"
-    git clone "$REPO_URL" "$PROJECT_DIR" >/dev/null 2>&1
+    if ! git clone "$REPO_URL" "$PROJECT_DIR"; then
+        echo "Erro: Falha ao clonar o repositório $REPO_URL"
+        exit 1
+    fi
 else
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR" || exit 1
     git fetch origin >/dev/null 2>&1
     if ! git reset --hard origin/main >/dev/null 2>&1; then
         echo "Atualização normal falhou — re-clonando do zero..."
         cd / && rm -rf "$PROJECT_DIR"
-        git clone "$REPO_URL" "$PROJECT_DIR" >/dev/null 2>&1
+        if ! git clone "$REPO_URL" "$PROJECT_DIR"; then
+            echo "Erro: Falha ao clonar o repositório $REPO_URL"
+            exit 1
+        fi
     fi
 fi
 
 # Garante que o usuário sempre veja o menu atualizado mesmo que o script rodado pelo curl esteja em cache
-if [ "$(realpath "$0")" != "$PROJECT_DIR/setup.sh" ] && [ "$1" != "--no-reload" ]; then
-    exec bash "$PROJECT_DIR/setup.sh" --no-reload
+SELF_PATH="$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")"
+if [ "$SELF_PATH" != "$PROJECT_DIR/setup.sh" ] && [ "$1" != "--no-reload" ]; then
+    if [ -f "$PROJECT_DIR/setup.sh" ]; then
+        exec bash "$PROJECT_DIR/setup.sh" --no-reload
+    else
+        echo "Erro: $PROJECT_DIR/setup.sh não foi encontrado."
+        exit 1
+    fi
 fi
 
 # Tenta importar common.sh

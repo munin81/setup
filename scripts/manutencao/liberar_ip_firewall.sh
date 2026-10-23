@@ -73,34 +73,38 @@ if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active firewalld >/de
 
   case "$OPCAO_PORTA" in
     1)
-      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22\" protocol=\"tcp\" accept" >/dev/null 2>&1
-      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22022\" protocol=\"tcp\" accept" >/dev/null 2>&1
-      ok "Portas 22 e 22022/tcp liberadas para $LIB_IP no firewalld."
+      firewall-cmd --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      firewall-cmd --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22022\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22022\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      ok "Portas 22 e 22022/tcp liberadas para $LIB_IP no firewalld (runtime e permanente)."
       ;;
     2)
-      firewall-cmd --permanent --zone=trusted --add-source="$LIB_IP" >/dev/null 2>&1
-      ok "IP $LIB_IP adicionado à zona 'trusted' (acesso total) no firewalld."
+      firewall-cmd --zone=trusted --add-source="$LIB_IP" >/dev/null 2>&1 || true
+      firewall-cmd --permanent --zone=trusted --add-source="$LIB_IP" >/dev/null 2>&1 || true
+      ok "IP $LIB_IP adicionado à zona 'trusted' (acesso total) no firewalld (runtime e permanente)."
       ;;
     3)
-      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22\" protocol=\"tcp\" accept" >/dev/null 2>&1
-      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22022\" protocol=\"tcp\" accept" >/dev/null 2>&1
-      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"3306\" protocol=\"tcp\" accept" >/dev/null 2>&1
-      ok "Portas 22, 22022 e 3306/tcp liberadas para $LIB_IP no firewalld."
+      firewall-cmd --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      firewall-cmd --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22022\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"22022\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      firewall-cmd --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"3306\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      firewall-cmd --permanent --zone=public --add-rich-rule="rule family=\"ipv4\" source address=\"$LIB_IP\" port port=\"3306\" protocol=\"tcp\" accept" >/dev/null 2>&1 || true
+      ok "Portas 22, 22022 e 3306/tcp liberadas para $LIB_IP no firewalld (runtime e permanente)."
       ;;
     *)
       erro "Opção inválida."
       ;;
   esac
 
-  firewall-cmd --reload >/dev/null 2>&1
-  ok "Regras do firewalld recarregadas com sucesso."
   APLICOU=1
 fi
 
 # ---------------------------------------------------------------------
-# 3. Aplicar no IPtables (se ativo ou se não houver firewalld)
+# 3. Aplicar no IPtables (APENAS se o firewalld não estiver ativo)
 # ---------------------------------------------------------------------
-if command -v iptables >/dev/null 2>&1; then
+if [ $APLICOU -eq 0 ] && command -v iptables >/dev/null 2>&1; then
   info "Aplicando regra no iptables..."
   case "$OPCAO_PORTA" in
     1)

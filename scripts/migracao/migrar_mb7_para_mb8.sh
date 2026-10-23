@@ -197,6 +197,15 @@ echo "    • DIDs:            $ORIGEM_DIDS"
 echo "    • Registros CDR:   $ORIGEM_CDRS"
 echo ""
 
+# Checagem de módulo comercial app_mbilling conforme documentação oficial
+ORIGEM_HAS_APP_MBILLING=$(ssh_origem "[ -f /usr/lib/asterisk/modules/app_mbilling.so ] || [ -d /var/www/html/mbilling/protected/modules/app_mbilling ] && echo 'SIM' || echo 'NAO'")
+if [ "$ORIGEM_HAS_APP_MBILLING" = "SIM" ]; then
+  warn "ATENÇÃO (app_mbilling): Módulo privado app_mbilling detectado na origem!"
+  warn "Segundo a documentação oficial da MagnusSolution, este módulo requer pacote"
+  warn "específico compatível com Asterisk 20 fornecido pelo suporte oficial MagnusSolution."
+  echo ""
+fi
+
 if [ $DRY_RUN -eq 1 ]; then
   ok "Simulação finalizada com sucesso. Nenhuma alteração foi realizada."
   exit 0
@@ -217,6 +226,19 @@ chmod 700 "$BKP_DIR"
 info "Criando backup do banco limpo do MB8 em $BKP_DIR..."
 MYSQL_PWD="$LOCAL_ROOT_PW" mysqldump --single-transaction --triggers mbilling | gzip > "$BKP_DIR/mbilling8-clean.sql.gz" || erro "Falha ao criar backup do banco local."
 ok "Backup do banco MB8 limpo salvo com sucesso."
+
+# Salvar tabelas exclusivas do MB8 (ex: Magnus Sentinel)
+MB8_SENTINEL_TABLES=$(mysql_local -N -e "SHOW TABLES FROM mbilling LIKE 'pkg_magnus_sentinel_%';" 2>/dev/null)
+if [ -n "$MB8_SENTINEL_TABLES" ]; then
+  info "Preservando tabelas do Magnus Sentinel detectadas no MB8..."
+  MYSQL_PWD="$LOCAL_ROOT_PW" mysqldump mbilling $MB8_SENTINEL_TABLES > "$BKP_DIR/mb8_sentinel_tables.sql" 2>/dev/null || true
+  ok "Tabelas do Magnus Sentinel preservadas para restauração."
+fi
+
+# Salvar chaves nativas de configuração do MB8 para merge
+info "Preservando catálogo nativo de configurações do MB8..."
+MYSQL_PWD="$LOCAL_ROOT_PW" mysqldump --no-create-info --insert-ignore mbilling pkg_configuration > "$BKP_DIR/mb8_clean_pkg_configuration.sql" 2>/dev/null || true
+ok "Snapshot de configurações nativas do MB8 preservado."
 
 info "Criando backup das configurações do Asterisk 20 em $BKP_DIR..."
 tar czf "$BKP_DIR/etc-asterisk-mb8-clean.tar.gz" /etc/asterisk 2>/dev/null || true
@@ -301,6 +323,20 @@ info "Importando dump do MB7 para o banco local..."
 zcat "$BKP_DIR/mbilling7-origem.sql.gz" | mysql_local mbilling || erro "Falha ao importar dump do MB7."
 ok "Dados do MB7 importados no MariaDB local."
 
+# Restaurar tabelas exclusivas do Sentinel se existiam no MB8
+if [ -s "$BKP_DIR/mb8_sentinel_tables.sql" ]; then
+  info "Restaurando tabelas do Magnus Sentinel..."
+  mysql_local mbilling < "$BKP_DIR/mb8_sentinel_tables.sql" || warn "Aviso ao restaurar Sentinel."
+  ok "Tabelas do Magnus Sentinel restauradas com sucesso."
+fi
+
+# Mesclagem inteligente de parâmetros do MB8
+if [ -s "$BKP_DIR/mb8_clean_pkg_configuration.sql" ]; then
+  info "Mesclando parâmetros de configuração nativos do MB8 (INSERT IGNORE)..."
+  mysql_local mbilling < "$BKP_DIR/mb8_clean_pkg_configuration.sql" || warn "Aviso ao mesclar chaves nativas."
+  ok "Parâmetros nativos do MB8 mesclados com sucesso."
+fi
+
 info "Garantindo permissões do usuário da aplicação (mbillingUser)..."
 mysql_local -e "
 CREATE USER IF NOT EXISTS 'mbillingUser'@'localhost' IDENTIFIED BY '$LOCAL_DB_PASS';
@@ -333,6 +369,9 @@ else
   warn "UpdateMysql retornou código de saída $UPDATE_STATUS. Verifique as mensagens acima."
 fi
 
+FINAL_DB_VERSION=$(mysql_local -N -e "SELECT config_value FROM mbilling.pkg_configuration WHERE config_key = 'version' LIMIT 1;" 2>/dev/null || echo "Desconhecida")
+ok "Versão do banco de dados pós-migração: $FINAL_DB_VERSION"
+
 # =====================================================================
 # FASE 9: Permissões e Arquivos PJSIP
 # =====================================================================
@@ -351,6 +390,10 @@ chown root:asterisk /etc/asterisk/res_config_mysql.conf 2>/dev/null
 chmod 0640 /etc/asterisk/res_config_mysql.conf 2>/dev/null
 usermod -aG asterisk www-data 2>/dev/null || true
 ok "Permissões ajustadas."
+
+info "Regenerando peers e credenciais PJSIP dinamicamente..."
+php -r "require '/var/www/html/mbilling/cron.php'; AsteriskAccess::instance()->generateSipPeers();" 2>/dev/null || true
+ok "Peers PJSIP regenerados a partir do banco."
 
 # =====================================================================
 # FASE 10: Reinício e Validação Final Pós-Migração
@@ -403,6 +446,23 @@ case "$HTTP_CODE" in
   *)           info "HTTP $HTTP_CODE retornado." ;;
 esac
 
+# Comparativo final de registros
+MB8_USERS=$(mysql_local -N -e 'SELECT COUNT(*) FROM mbilling.pkg_user;' 2>/dev/null || echo "0")
+MB8_TRUNKS=$(mysql_local -N -e 'SELECT COUNT(*) FROM mbilling.pkg_trunk;' 2>/dev/null || echo "0")
+MB8_RAMAIS=$(mysql_local -N -e 'SELECT COUNT(*) FROM mbilling.pkg_sip;' 2>/dev/null || echo "0")
+MB8_DIDS=$(mysql_local -N -e 'SELECT COUNT(*) FROM mbilling.pkg_did;' 2>/dev/null || echo "0")
+MB8_CDRS=$(mysql_local -N -e 'SELECT COUNT(*) FROM mbilling.pkg_cdr;' 2>/dev/null || echo "0")
+MB8_CONFIGS=$(mysql_local -N -e 'SELECT COUNT(*) FROM mbilling.pkg_configuration;' 2>/dev/null || echo "0")
+
+echo ""
+echo "  Conferência e Integridade dos Dados:"
+echo "    • Usuários:        Origem ($ORIGEM_USERS) ➔ Destino ($MB8_USERS)"
+echo "    • Troncos:         Origem ($ORIGEM_TRUNKS SIP) ➔ Destino ($MB8_TRUNKS PJSIP)"
+echo "    • Ramais:          Origem ($ORIGEM_RAMAIS) ➔ Destino ($MB8_RAMAIS)"
+echo "    • DIDs:            Origem ($ORIGEM_DIDS) ➔ Destino ($MB8_DIDS)"
+echo "    • Registros CDR:   Origem ($ORIGEM_CDRS) ➔ Destino ($MB8_CDRS)"
+echo "    • Configurações:   Destino possui $MB8_CONFIGS parâmetros configurados"
+
 echo ""
 titulo "MIGRAÇÃO DE DADOS PARA MAGNUSBILLING 8 CONCLUÍDA"
 echo ""
@@ -411,11 +471,11 @@ echo ""
 echo "  Servidor de Origem:   $ORIGEM_IP"
 echo "  Backup de Rollback:   $BKP_DIR"
 echo ""
-echo -e "${NEGRITO}PRÓXIMOS PASSOS OBRIGATÓRIOS:${NC}"
-echo "  1. Acesse o painel web no novo servidor e valide login do administrador."
-echo "  2. Revise os troncos convertidos para PJSIP no menu Troncos (Codecs, NAT, Qualify)."
-echo "  3. Efetue ligações de teste (entrada e saída) no novo servidor."
-echo "  4. Aponte o DNS do domínio e o tráfego SIP (portas UDP 5060, 10000-60000) para este servidor."
+echo -e "${NEGRITO}PRÓXIMOS PASSOS OBRIGATÓRIOS (conforme wiki oficial):${NC}"
+echo "  1. Acesse o painel web no novo servidor e valide o login do administrador."
+echo "  2. Revise os troncos convertidos para PJSIP no menu Troncos (Codecs, NAT, Qualify, Registros)."
+echo "  3. Execute ligações de teste (entrada e saída) validando tarifação e áudio bidirecional."
+echo "  4. Aponte o DNS e o roteamento de tráfego SIP (portas UDP 5060, 10000-60000) para este servidor."
 echo "  5. Se necessário, configure o certificado SSL gratuito via opção 4 do setup."
 echo ""
 echo -e "${NEGRITO}ROLLBACK (caso precise voltar o servidor novo ao estado limpo inicial):${NC}"

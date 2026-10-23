@@ -3,7 +3,7 @@
 # Magnus Utilities — gerar_csv_cdr.sh
 # Versão: 1.0 (16 de julho de 2026)
 # Função: Gerar relatório de CDR em CSV por usuário e período
-# Autor: Voxcorp Telecom
+# Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
 #   - Rodar como root (para salvar o CSV em /root e ler credenciais)

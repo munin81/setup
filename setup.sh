@@ -131,6 +131,8 @@ EOF_ASCII
     echo -e "    ${AZUL}↳${NC} Cria usuário MySQL por IP, senha oculta, sem expor dados."
     echo -e " ${NEGRITO}12.${NC} Gerar Relatório CSV de CDR"
     echo -e "    ${AZUL}↳${NC} Exporta histórico de chamadas (CDR) por usuário e período."
+    echo -e " ${NEGRITO}14.${NC} Trocar Senha do Painel Web (root / usuário)"
+    echo -e "    ${AZUL}↳${NC} Altera com segurança a senha de acesso web do MagnusBilling."
     echo ""
     echo -e " ${NEGRITO}0.${NC} Sair"
     echo "=================================================================="
@@ -202,6 +204,11 @@ while true; do
             ;;
         13)
             bash "$PROJECT_DIR/scripts/migracao/migrar_magnus.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        14)
+            bash "$PROJECT_DIR/scripts/manutencao/alterar_senha_web.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

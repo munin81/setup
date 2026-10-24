@@ -1,7 +1,7 @@
 # Changelog
 
+- feat(seguranca): blindar_ssh_magnus.sh v2.0 (Opção 6) — alteração interativa da porta SSH (sugestão padrão 22022), compatibilidade transparente com Debian 12 (migração de ssh.socket para ssh.service tradicional), permissão dupla temporária no firewall durante validação e deadman switch de 300s
 - feat(seguranca): modo 403 Forbidden discreto (stealth) no blindar_web_magnus.sh (não exibe marca/logo para visitantes externos) e aumento do tempo do deadman switch para 300s (5 minutos) tanto na blindagem Web quanto SSH
-- feat(seguranca): blindar_ssh_magnus.sh (Opção 6) — restrição da porta SSH no firewall (firewalld/iptables) exclusivamente a IPs cadastrados, descartando conexões externas não autorizadas
 - feat(ssl): proteção anti-acesso por IP puro no configurar_ssl_mb8.sh — Apache redireciona automaticamente qualquer requisição por IP direto para o domínio canônico seguro (https)
 - feat(ssl): configurar_ssl_mb8.sh (Opção 4) — emissor de SSL Let's Encrypt para MB8 no Debian 12 com pré-validação DNS, auto-configuração do VirtualHost no Apache 2.4, bypass de ACME challenge para renovações, integração automática de certificados com Asterisk 20 (WebRTC/WSS) e hook de deploy
 - refactor(ssl): configurar_ssl_mb7_legado.sh (Opção 16) — renomeado script legado para emissão de SSL no MagnusBilling 7

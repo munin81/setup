@@ -73,15 +73,28 @@ for IPB in $ALLOWED; do
     || warn "'$IPB' não parece IPv4/CIDR — confira (o Apache valida no final)"
 done
 
-read -p "  Nome para o rodapé da página de bloqueio [Magnus]: " EMPRESA
-EMPRESA=${EMPRESA:-Magnus}
+echo ""
+info "Estilo de bloqueio para IPs não autorizados:"
+echo "    1) [Recomendado] Erro 403 Forbidden discreto (Apache nativo — máximo sigilo, não expõe marca nem sistema)"
+echo "    2) Página personalizada (Cadeado 🔒 + 'Acesso Não Autorizado')"
+read -p "  Escolha a opção [1]: " MODO_BLOQUEIO
+MODO_BLOQUEIO=${MODO_BLOQUEIO:-1}
+
+if [ "$MODO_BLOQUEIO" = "2" ]; then
+    read -p "  Nome para o rodapé da página de bloqueio [Magnus]: " EMPRESA
+    EMPRESA=${EMPRESA:-Magnus}
+fi
 ANO=$(date +%Y)
 REQUIRE_LINE="Require ip 127.0.0.1 ::1 $ALLOWED"
 
 echo ""
 titulo "RESUMO"
 echo "  Autorizados: $ALLOWED (+ 127.0.0.1/::1)"
-echo "  Rodapé:      © $ANO $EMPRESA"
+if [ "$MODO_BLOQUEIO" = "2" ]; then
+    echo "  Modo:        Página personalizada (© $ANO $EMPRESA)"
+else
+    echo "  Modo:        403 Forbidden discreto (Apache padrão / Stealth)"
+fi
 echo ""
 read -p "  Confirma aplicar/padronizar a blindagem? [s/N]: " RESP
 [[ "$RESP" =~ ^[Ss]$ ]] || erro "Cancelado pelo usuário"
@@ -97,11 +110,12 @@ cp -a /etc/apache2/conf-available  "$BKP_DIR/conf-available"  2>/dev/null
 ok "Backup em $BKP_DIR"
 
 # ---------------------------------------------------------------------
-# Página de bloqueio
+# Configuração da Blindagem
 # ---------------------------------------------------------------------
-titulo "2. Página de bloqueio"
-mkdir -p /var/www/html/blocked
-cat > /var/www/html/blocked/index.html <<HTMLEOF
+if [ "$MODO_BLOQUEIO" = "2" ]; then
+    titulo "2. Página de bloqueio personalizada"
+    mkdir -p /var/www/html/blocked
+    cat > /var/www/html/blocked/index.html <<HTMLEOF
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -135,24 +149,44 @@ cat > /var/www/html/blocked/index.html <<HTMLEOF
 </body>
 </html>
 HTMLEOF
-chown -R www-data:www-data /var/www/html/blocked 2>/dev/null
-chmod 755 /var/www/html/blocked
-chmod 644 /var/www/html/blocked/index.html
-ok "Página criada em /var/www/html/blocked/index.html"
+    chown -R www-data:www-data /var/www/html/blocked 2>/dev/null
+    chmod 755 /var/www/html/blocked
+    chmod 644 /var/www/html/blocked/index.html
+    ok "Página criada em /var/www/html/blocked/index.html"
 
-# ---------------------------------------------------------------------
-# Regra global (conf-enabled): <Location /> sobrepõe qualquer <Directory>
-# ---------------------------------------------------------------------
-titulo "3. Regra global de blindagem"
-cat > /etc/apache2/conf-available/magnus-blindagem.conf <<CONFEOF
-# Magnus Utilities — Blindagem de acesso web do painel por IP
+    titulo "3. Regra global de blindagem (Página Personalizada)"
+    cat > /etc/apache2/conf-available/magnus-blindagem.conf <<CONFEOF
+# Magnus Utilities — Blindagem de acesso web do painel por IP (Página Personalizada)
 # Gerado por blindar_web_magnus.sh — não editar manualmente.
 
-# Página de bloqueio liberada a todos (mais específica vence a regra global)
+# Restrição GLOBAL — vale para todo VirtualHost (domínio e IP, :80 e :443)
+<Location />
+    Require ip 127.0.0.1 ::1 $ALLOWED
+</Location>
+
+# Exceção: página de bloqueio liberada a todos
 Alias /acesso-bloqueado /var/www/html/blocked
+<Directory /var/www/html/blocked>
+    Require all granted
+</Directory>
 <Location /acesso-bloqueado>
     Require all granted
 </Location>
+
+# Exceção: validação do Let's Encrypt (senão a renovação do SSL quebra)
+<Location /.well-known/acme-challenge>
+    Require all granted
+</Location>
+
+# Visitantes não autorizados recebem a página de bloqueio (HTTP 403)
+ErrorDocument 403 /acesso-bloqueado/index.html
+CONFEOF
+
+else
+    titulo "2. Regra global de blindagem (Modo 403 Discreto / Stealth)"
+    cat > /etc/apache2/conf-available/magnus-blindagem.conf <<CONFEOF
+# Magnus Utilities — Blindagem de acesso web do painel por IP (Modo Stealth)
+# Gerado por blindar_web_magnus.sh — não editar manualmente.
 
 # Exceção: validação do Let's Encrypt (senão a renovação do SSL quebra)
 <Location /.well-known/acme-challenge>
@@ -163,10 +197,10 @@ Alias /acesso-bloqueado /var/www/html/blocked
 <Location />
     Require ip 127.0.0.1 ::1 $ALLOWED
 </Location>
-
-# Visitantes não autorizados recebem a página de bloqueio (HTTP 403)
-ErrorDocument 403 /acesso-bloqueado/index.html
 CONFEOF
+    ok "Modo 403 discreto configurado (sem exibição de marca ou sistema)."
+fi
+
 a2enconf magnus-blindagem >/dev/null 2>&1
 ok "conf-available/magnus-blindagem.conf criado e habilitado"
 
@@ -221,12 +255,12 @@ ok "Sintaxe do Apache OK"
 systemctl reload apache2 && ok "Apache recarregado" || warn "Falha ao recarregar"
 
 echo ""
-warn "TESTE AGORA: do seu IP autorizado o painel deve abrir;"
-warn "de fora (4G/TOR), domínio E IP devem mostrar 'Acesso Não Autorizado'."
+warn "TESTE AGORA: do seu IP autorizado o painel deve abrir normalmente;"
+warn "de fora (ex: 4G no celular), o acesso deve ser bloqueado com 403 Forbidden."
 echo ""
-read -t 60 -p "  Você AINDA acessa o painel do IP autorizado? [s/N] (60s p/ auto-reverter): " OKW || true
+read -t 300 -p "  Você AINDA acessa o painel do IP autorizado? [s/N] (300s / 5 min p/ auto-reverter): " OKW || true
 if [[ ! "$OKW" =~ ^[Ss]$ ]]; then
-  echo ""; warn "Tempo esgotado ou negado — REVERTENDO..."
+  echo ""; warn "Tempo esgotado (5 minutos) ou negado — REVERTENDO..."
   reverter
   warn "Revertido. Acesso restaurado. Backup em $BKP_DIR"
   exit 1
@@ -235,12 +269,16 @@ fi
 # ---------------------------------------------------------------------
 # Conclusão
 # ---------------------------------------------------------------------
-titulo "BLINDAGEM PADRONIZADA"
+titulo "BLINDAGEM APLICADA COM SUCESSO"
 echo ""
 echo -e "  ${VERDE}${NEGRITO}✓ Painel restrito aos IPs autorizados (domínio e IP, :80 e :443)${NC}"
 echo ""
 echo "  Autorizados:  $ALLOWED (+ local)"
-echo "  Página 403:   /var/www/html/blocked/index.html"
+if [ "$MODO_BLOQUEIO" = "2" ]; then
+    echo "  Modo:         Página personalizada (/var/www/html/blocked/index.html)"
+else
+    echo "  Modo:         403 Forbidden discreto (Apache nativo / Stealth)"
+fi
 echo "  Config:       /etc/apache2/conf-available/magnus-blindagem.conf"
 echo "  Backup:       $BKP_DIR"
 echo ""

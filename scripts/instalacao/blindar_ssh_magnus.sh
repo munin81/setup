@@ -163,11 +163,11 @@ warn "A blindagem está ativa agora em runtime."
 warn "Por segurança, abra um novo terminal ou teste uma nova conexão a partir do seu IP autorizado."
 echo ""
 
-read -t 60 -p "  Você confirma que o acesso SSH continua funcionando normalmente? [s/N] (60s timeout): " CONFIRMA_OK || true
+read -t 300 -p "  Você confirma que o acesso SSH continua funcionando normalmente? [s/N] (300s / 5 min timeout): " CONFIRMA_OK || true
 
 if [[ ! "$CONFIRMA_OK" =~ ^[Ss]$ ]]; then
     echo ""
-    warn "Tempo esgotado ou resposta negativa recebida!"
+    warn "Tempo esgotado (5 minutos) ou resposta negativa recebida!"
     if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active firewalld >/dev/null 2>&1; then
         reverter_firewalld
     else

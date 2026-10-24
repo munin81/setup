@@ -1,5 +1,6 @@
 # Changelog
 
+- fix(diagnostico): corrigir detecção de SSL no verificar_seguranca_magnus.sh — redireciona stderr do apache2ctl -S e valida socket 443 ativo e certificados locais
 - feat(diagnostico): verificar_seguranca_magnus.sh (Opção 9) — auditoria de segurança e conformidade do MagnusBilling: valida porta SSH (reprova se porta 22 padrão), verifica restrição de IP no SSH (firewall) e na Web (Apache 403), audita anti-IP puro, SSL, MySQL 3306 e Fail2ban com veredito final
 - feat(seguranca): desfazer_bloqueios_magnus.sh (Opção 17) — utilitário seguro para reverter bloqueios por IP da Web e do SSH (com opção de retornar a porta SSH para 22 ou manter customizada), reabrindo os acessos globalmente no Apache e Firewalld/IPtables
 - feat(seguranca): blindar_ssh_magnus.sh v2.0 (Opção 6) — alteração interativa da porta SSH (sugestão padrão 22022), compatibilidade transparente com Debian 12 (migração de ssh.socket para ssh.service tradicional), permissão dupla temporária no firewall durante validação e deadman switch de 300s

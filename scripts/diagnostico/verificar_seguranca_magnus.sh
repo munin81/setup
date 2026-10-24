@@ -204,21 +204,53 @@ fi
 titulo "5. Criptografia SSL / TLS (HTTPS)"
 
 SSL_OK=0
+# 1. Verifica no apache2ctl redirecionando stderr (apache2ctl -S cospe as infos em stderr)
 if command -v apache2ctl >/dev/null 2>&1; then
-    if apache2ctl -S 2>/dev/null | grep -q "port 443"; then
+    if apache2ctl -S 2>&1 | grep -qE "(port 443|:443)"; then
         SSL_OK=1
     fi
 fi
 
-DOMINIOS_SSL=$(certbot certificates 2>/dev/null | grep "Domains:" | awk '{$1=""; print $0}' | xargs)
+# 2. Verifica se a porta 443 está em escuta no sistema
+if [ "$SSL_OK" -eq 0 ]; then
+    if ss -tulpn 2>/dev/null | grep -qE ":443\s"; then
+        SSL_OK=1
+    fi
+fi
+
+# 3. Verifica se há vhost SSL ativo nos sites habilitados
+if [ "$SSL_OK" -eq 0 ]; then
+    if grep -rqiE "(<VirtualHost[^>]*:443|SSLEngine\s+on)" /etc/apache2/sites-enabled/ 2>/dev/null; then
+        SSL_OK=1
+    fi
+fi
+
+# Coleta domínios e validade do Certbot
+DOMINIOS_SSL=$(certbot certificates 2>/dev/null | grep -i "Domains:" | sed 's/.*Domains://' | xargs)
+[ -z "$DOMINIOS_SSL" ] && DOMINIOS_SSL=$(ls /etc/letsencrypt/live/ 2>/dev/null | grep -v "README" | tr '\n' ' ' | xargs)
+
+VALIDADE_SSL=$(certbot certificates 2>/dev/null | grep -i "Expiry Date:" | head -1 | sed 's/.*Expiry Date://' | xargs)
+
+# Detalhe do Asterisk WebRTC
+AST_CERT_OK=0
+[ -f /etc/asterisk/keys/asterisk.crt ] && AST_CERT_OK=1
 
 if [ "$SSL_OK" -eq 1 ] && [ -n "$DOMINIOS_SSL" ]; then
+    DETALHE_SSL="Domínio(s) seguro(s): $DOMINIOS_SSL"
+    [ -n "$VALIDADE_SSL" ] && DETALHE_SSL="$DETALHE_SSL (Expira: $VALIDADE_SSL)"
+    [ "$AST_CERT_OK" -eq 1 ] && DETALHE_SSL="$DETALHE_SSL | Chaves Asterisk 20 (WebRTC/WSS) prontas"
+
     check_result "PASS" \
         "Certificado SSL ativo e vinculado à porta 443 do Apache" \
-        "Domínio(s) seguro(s): $DOMINIOS_SSL."
+        "$DETALHE_SSL"
 elif [ "$SSL_OK" -eq 1 ]; then
     check_result "PASS" \
-        "Porta 443 SSL configurada no Apache"
+        "Porta 443 SSL configurada e ativa no Apache" \
+        "Tráfego web criptografado via HTTPS."
+elif [ -n "$DOMINIOS_SSL" ]; then
+    check_result "WARN" \
+        "Certificado Certbot localizado para $DOMINIOS_SSL, mas porta 443 inativa no Apache" \
+        "Reinicie o Apache para carregar o VirtualHost SSL: systemctl restart apache2"
 else
     check_result "FAIL" \
         "Servidor Web sem certificado SSL ativo na porta 443" \

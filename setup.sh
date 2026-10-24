@@ -107,8 +107,10 @@ EOF_ASCII
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}               [ CONFIGURAÇÃO DE SERVIDOR WEB ]${NC}"
     echo "=================================================================="
-    echo -e " ${NEGRITO}4.${NC} Configurar Certificado SSL (HTTPS Let's Encrypt)"
-    echo -e "    ${AZUL}↳${NC} Emite SSL gratuito e aplica redirecionamento seguro no Apache."
+    echo -e " ${NEGRITO}4.${NC} Configurar Certificado SSL — MagnusBilling 8 (Let's Encrypt)"
+    echo -e "    ${AZUL}↳${NC} Emite SSL gratuito no Apache e integra chaves com Asterisk 20 (WebRTC)."
+    echo -e " ${NEGRITO}16.${NC} Configurar Certificado SSL — MagnusBilling 7 Legado"
+    echo -e "    ${AZUL}↳${NC} Emissão e configuração de SSL no Apache para servidores MB7."
     echo -e " ${NEGRITO}5.${NC} Limpar URL do Painel (Remover /mbilling)"
     echo -e "    ${AZUL}↳${NC} Altera o Apache para exibir o painel direto na raiz do domínio."
     echo ""
@@ -160,7 +162,12 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         4)
-            bash "$PROJECT_DIR/scripts/instalacao/configurar_ssl_magnus.sh"
+            bash "$PROJECT_DIR/scripts/instalacao/configurar_ssl_mb8.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        16)
+            bash "$PROJECT_DIR/scripts/instalacao/configurar_ssl_mb7_legado.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

@@ -1,16 +1,16 @@
 #!/bin/bash
 # =====================================================================
-# Magnus Utilities — configurar_ssl_magnus.sh
-# Versão: 1.0 (10 de junho de 2026)
-# Função: Instalação automática do SSL Let's Encrypt para o Apache
+# Magnus Utilities — configurar_ssl_mb7_legado.sh
+# Versão: 1.0 (Legado MagnusBilling 7)
+# Função: Instalação automática do SSL Let's Encrypt para o Apache no MB7
 # Autor: Comunidade MagnusBilling
 #
 # Pré-requisitos:
-#   - Rodar como root
+#   - Rodar como root no MagnusBilling 7 (Debian 10/11)
 #   - Domínio (A record) já apontado para o IP do servidor
 #   - Portas 80 e 443 liberadas no firewall
 #
-# Uso: bash configurar_ssl_magnus.sh
+# Uso: bash configurar_ssl_mb7_legado.sh
 # =====================================================================
 
 set -o pipefail

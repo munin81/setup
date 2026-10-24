@@ -1,6 +1,7 @@
 # Changelog
 
-## [Unreleased]
+- feat(ssl): configurar_ssl_mb8.sh (Opção 4) — emissor de SSL Let's Encrypt para MB8 no Debian 12 com pré-validação DNS, auto-configuração do VirtualHost no Apache 2.4, bypass de ACME challenge para renovações, integração automática de certificados com Asterisk 20 (WebRTC/WSS) e hook de deploy
+- refactor(ssl): configurar_ssl_mb7_legado.sh (Opção 16) — renomeado script legado para emissão de SSL no MagnusBilling 7
 - feat(firewall): liberar_ip_firewall.sh (Opção 15) — libera IP de servidor (MB8) no firewall (firewalld/iptables) e fail2ban para SSH (portas 22 e 22022) ou acesso total para migração
 - feat(migracao): migrar_mb7_para_mb8.sh — migração automatizada side-by-side de MB7 para MB8: preservação de tabelas Magnus Sentinel, merge inteligente de parâmetros de configuração nativos do MB8, detecção do módulo app_mbilling, regeneração automática de peers PJSIP e validação cruzada de contagem de registros pós-migração
 - feat(mb8): suporte oficial ao MagnusBilling 8 (Asterisk 20 + PJSIP) no instalar_magnus.sh com repositório oficial magnussolution/magnusbilling

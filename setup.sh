@@ -138,10 +138,10 @@ show_page_1() {
     echo -e "    ${AZUL}↳${NC} Altera com segurança a senha de acesso web do MagnusBilling."
     echo ""
     echo "=================================================================="
-    echo -e " ${NEGRITO}[P]${NC} ou ${NEGRITO}[2]${NC} 👉 Próxima Página: Utilitários MagnusBilling 7 Legado"
+    echo -e " ${NEGRITO}[L]${NC} 👉 Ver ferramentas LEGADAS (MagnusBilling 7)"
     echo -e " ${NEGRITO}[0]${NC} Sair"
     echo "=================================================================="
-    read -p "Opção: " OPTION
+    read -p "Opção [1-14 ou L]: " OPTION
 }
 
 show_page_2() {
@@ -162,10 +162,10 @@ show_page_2() {
     echo -e "    ${AZUL}↳${NC} Script de regras iptables puras clássicas da documentação antiga do MB7."
     echo ""
     echo "=================================================================="
-    echo -e " ${NEGRITO}[A]${NC} ou ${NEGRITO}[1]${NC} 👈 Página Anterior: MagnusBilling 8 (Principal)"
+    echo -e " ${NEGRITO}[V]${NC} 👈 VOLTAR para o MagnusBilling 8 (Principal)"
     echo -e " ${NEGRITO}[0]${NC} Sair"
     echo "=================================================================="
-    read -p "Opção: " OPTION
+    read -p "Opção [21-25 ou V]: " OPTION
 }
 
 while true; do
@@ -175,11 +175,11 @@ while true; do
         show_page_2
     fi
 
-    # Tratamento de navegação entre páginas
-    if [[ "$OPTION" =~ ^[Pp2]$ ]] && [ "$CURRENT_PAGE" -eq 1 ]; then
+    # Tratamento de navegação exclusivamente por letras (sem colisão com números de scripts)
+    if [[ "$OPTION" =~ ^[LlPp]$ ]] && [ "$CURRENT_PAGE" -eq 1 ]; then
         CURRENT_PAGE=2
         continue
-    elif [[ "$OPTION" =~ ^[Aa1]$ ]] && [ "$CURRENT_PAGE" -eq 2 ]; then
+    elif [[ "$OPTION" =~ ^[VvAaMm]$ ]] && [ "$CURRENT_PAGE" -eq 2 ]; then
         CURRENT_PAGE=1
         continue
     fi

@@ -91,8 +91,8 @@ EOF_ASCII
     echo "=================================================================="
     echo -e " ${NEGRITO}1.${NC} Auditoria de Saúde e Segurança (Health Check)"
     echo -e "    ${AZUL}↳${NC} Varre serviços, corrige permissões, alerta erros e audita."
-    echo -e " ${NEGRITO}9.${NC} Auditoria de Segurança Ativa (SSL, DB, SSH, Apache)"
-    echo -e "    ${AZUL}↳${NC} Checagem read-only de certificados, usuários DB externos e portas."
+    echo -e " ${NEGRITO}9.${NC} Auditoria de Segurança e Blindagem (SSH, Web, Portas, Firewall)"
+    echo -e "    ${AZUL}↳${NC} Verifica se o SSH não usa porta 22 e se Web e SSH estão restritos por IP."
     echo ""
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}                 [ INSTALAÇÃO E MIGRAÇÃO ]${NC}"
@@ -123,6 +123,8 @@ EOF_ASCII
     echo -e "    ${AZUL}↳${NC} Restringe o painel a IPs/blocos (exibe página 'Acesso Não Autorizado')."
     echo -e " ${NEGRITO}15.${NC} Liberar IP no Firewall (SSH / Migração)"
     echo -e "    ${AZUL}↳${NC} Libera o IP de outro servidor (ex: MB8) no firewalld/iptables e fail2ban."
+    echo -e " ${NEGRITO}17.${NC} Desfazer Bloqueios de Segurança (Reabrir Web e SSH)"
+    echo -e "    ${AZUL}↳${NC} Remove restrições de IP e restaura o acesso global se necessário."
     echo ""
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}                  [ MANUTENÇÃO DE BANCO ]${NC}"
@@ -192,7 +194,7 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         9)
-            bash "$PROJECT_DIR/scripts/manutencao/auditoria_magnus.sh"
+            bash "$PROJECT_DIR/scripts/diagnostico/verificar_seguranca_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
@@ -223,6 +225,11 @@ while true; do
             ;;
         15)
             bash "$PROJECT_DIR/scripts/manutencao/liberar_ip_firewall.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        17)
+            bash "$PROJECT_DIR/scripts/manutencao/desfazer_bloqueios_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

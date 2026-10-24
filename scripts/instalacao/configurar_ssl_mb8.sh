@@ -158,6 +158,35 @@ fi
 ok "Certificado SSL emitido e vinculado ao Apache com sucesso!"
 
 # ---------------------------------------------------------------------
+# Prevenção de Acesso por IP Puro (Forçar Domínio Canônico)
+# ---------------------------------------------------------------------
+info "Configurando Apache para impedir navegação direta por IP puro..."
+
+# Normaliza redirecionamento na porta 80 para ser incondicional
+for VH in /etc/apache2/sites-enabled/*.conf /etc/apache2/sites-available/*.conf; do
+    [ -f "$VH" ] || continue
+    if grep -q "RewriteCond %{SERVER_NAME}" "$VH"; then
+        sed -i '/RewriteCond %{SERVER_NAME}/d' "$VH"
+    fi
+done
+
+# Cria regra para redirecionar qualquer acesso por IP direto (HTTP/HTTPS) para o domínio oficial
+BLOCK_IP_CONF="/etc/apache2/conf-available/magnus-forcar-dominio.conf"
+cat << EOF_REDIRECT > "$BLOCK_IP_CONF"
+# Magnus Utilities — Bloqueio de IP direto e redirecionamento para domínio canônico
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Se o host acessado não for exatamente o domínio oficial, redireciona para HTTPS do domínio
+    RewriteCond %{HTTP_HOST} !^${DOMAIN//./\\.}$ [NC]
+    RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+    RewriteRule ^ https://${DOMAIN}%{REQUEST_URI} [L,R=301]
+</IfModule>
+EOF_REDIRECT
+
+a2enconf magnus-forcar-dominio >/dev/null 2>&1
+ok "Acesso web por IP puro bloqueado (redirecionado automaticamente para https://$DOMAIN)."
+
+# ---------------------------------------------------------------------
 # 5. Integração com Asterisk 20 (WebRTC / PJSIP WSS)
 # ---------------------------------------------------------------------
 titulo "3. Integração de Certificados com Asterisk 20"

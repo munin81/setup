@@ -1,5 +1,7 @@
 # Changelog
 
+- feat(seguranca): blindar_ssh_magnus.sh (Opção 6) — restrição da porta SSH no firewall (firewalld/iptables) exclusivamente a IPs cadastrados, descartando conexões externas não autorizadas, com deadman switch de 60s
+- feat(ssl): proteção anti-acesso por IP puro no configurar_ssl_mb8.sh — Apache redireciona automaticamente qualquer requisição por IP direto para o domínio canônico seguro (https)
 - feat(ssl): configurar_ssl_mb8.sh (Opção 4) — emissor de SSL Let's Encrypt para MB8 no Debian 12 com pré-validação DNS, auto-configuração do VirtualHost no Apache 2.4, bypass de ACME challenge para renovações, integração automática de certificados com Asterisk 20 (WebRTC/WSS) e hook de deploy
 - refactor(ssl): configurar_ssl_mb7_legado.sh (Opção 16) — renomeado script legado para emissão de SSL no MagnusBilling 7
 - feat(firewall): liberar_ip_firewall.sh (Opção 15) — libera IP de servidor (MB8) no firewall (firewalld/iptables) e fail2ban para SSH (portas 22 e 22022) ou acesso total para migração

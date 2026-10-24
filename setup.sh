@@ -117,10 +117,10 @@ EOF_ASCII
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}                  [ SEGURANÇA E FIREWALL ]${NC}"
     echo "=================================================================="
-    echo -e " ${NEGRITO}6.${NC} Blindagem de Firewall Interativo (IPtables)"
-    echo -e "    ${AZUL}↳${NC} Trava acesso admin (SSH/MySQL) com proteção anti-bloqueio."
+    echo -e " ${NEGRITO}6.${NC} Blindar Acesso SSH no Firewall (por IP)"
+    echo -e "    ${AZUL}↳${NC} Restringe porta SSH (22022/22) aos IPs cadastrados e evita conexões externas."
     echo -e " ${NEGRITO}10.${NC} Blindar Acesso Web do Painel (por IP)"
-    echo -e "    ${AZUL}↳${NC} Restringe o painel a IPs/blocos (URL E IP direto); mostra página de bloqueio."
+    echo -e "    ${AZUL}↳${NC} Restringe o painel a IPs/blocos (exibe página 'Acesso Não Autorizado')."
     echo -e " ${NEGRITO}15.${NC} Liberar IP no Firewall (SSH / Migração)"
     echo -e "    ${AZUL}↳${NC} Libera o IP de outro servidor (ex: MB8) no firewalld/iptables e fail2ban."
     echo ""
@@ -177,7 +177,7 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         6)
-            bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus.sh"
+            bash "$PROJECT_DIR/scripts/instalacao/blindar_ssh_magnus.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

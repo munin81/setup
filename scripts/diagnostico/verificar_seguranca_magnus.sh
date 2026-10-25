@@ -298,7 +298,45 @@ else
 fi
 
 # ---------------------------------------------------------------------
-# 8. Veredito Final
+# 8. Checagem de Atualização do MagnusBilling (Versão e Patches)
+# ---------------------------------------------------------------------
+titulo "8. Versão e Patches de Segurança do MagnusBilling"
+
+MB_DIR="/var/www/html/mbilling"
+COMMITS_BEHIND=0
+
+if [ -d "$MB_DIR/.git" ]; then
+    BRANCH=$(git -C "$MB_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "source")
+    [ "$BRANCH" = "HEAD" ] && BRANCH="source"
+    COMMIT_LOCAL=$(git -C "$MB_DIR" log -1 --format="%h (%cd)" --date=short 2>/dev/null || echo "desconhecido")
+
+    # Tenta checar com timeout de 4 segundos para não travar se offline
+    if timeout 4 git -C "$MB_DIR" fetch origin "$BRANCH" >/dev/null 2>&1; then
+        COMMITS_BEHIND=$(git -C "$MB_DIR" rev-list --count HEAD.."origin/$BRANCH" 2>/dev/null || echo "0")
+
+        if [ "$COMMITS_BEHIND" -eq 0 ]; then
+            check_result "PASS" \
+                "MagnusBilling está atualizado no commit mais recente ($COMMIT_LOCAL)" \
+                "Nenhum patch de segurança ou correção pendente no repositório oficial."
+        else
+            check_result "WARN" \
+                "MagnusBilling possui $COMMITS_BEHIND atualização(ões) pendente(s) no repositório oficial" \
+                "Versão local: $COMMIT_LOCAL. Versões desatualizadas podem conter vulnerabilidades ou bugs corrigidos." \
+                "Execute a Opção 10 do menu (Atualizar MagnusBilling 8) durante uma janela de manutenção."
+        fi
+    else
+        check_result "PASS" \
+            "MagnusBilling em execução no commit $COMMIT_LOCAL" \
+            "Servidor offline ou timeout ao consultar GitHub no momento."
+    fi
+else
+    check_result "WARN" \
+        "Diretório $MB_DIR não é um repositório git rastreado" \
+        "Recomenda-se utilizar a Opção 10 do menu para padronizar e atualizar o sistema."
+fi
+
+# ---------------------------------------------------------------------
+# 9. Veredito Final
 # ---------------------------------------------------------------------
 titulo "RELATÓRIO FINAL DE SEGURANÇA"
 
@@ -319,6 +357,7 @@ if [ "$SSH_PORT" -ne 22 ] && [ "$SSH_ABERTO_GLOBAL" -eq 0 ] && [ "$WEB_BLINDADA"
     echo -e "  ${VERDE}✓${NC} Porta SSH alterada para TCP $SSH_PORT (sem uso da porta 22 padrão)"
     echo -e "  ${VERDE}✓${NC} Acesso SSH bloqueado a nível de firewall para IPs não cadastrados"
     echo -e "  ${VERDE}✓${NC} Acesso WEB restrito a IPs cadastrados (bloqueio 403 para visitantes)"
+    [ "$COMMITS_BEHIND" -gt 0 ] && echo -e "  ${AMARELO}ℹ${NC} ${AMARELO}Lembrete:${NC} Existem $COMMITS_BEHIND updates pendentes (agende via Opção 10 em janela de manutenção)."
     echo ""
     echo "  Seu servidor está protegido contra scanners e invasões não autorizadas."
 else
@@ -327,9 +366,10 @@ else
     echo -e "  ${VERMELHO}${NEGRITO}══════════════════════════════════════════════════════════════════${NC}"
     echo ""
     echo "  Para deixar este MagnusBilling seguro conforme o padrão recomendado:"
-    [ "$SSH_PORT" -eq 22 ] && echo -e "    ${AMARELO}•${NC} Alterar a porta SSH da padrão 22 para 22022 (Opção 6 do menu)"
-    [ "$SSH_ABERTO_GLOBAL" -eq 1 ] && echo -e "    ${AMARELO}•${NC} Restringir a porta SSH no firewall para seus IPs (Opção 6 do menu)"
-    [ "$WEB_BLINDADA" -eq 0 ] && echo -e "    ${AMARELO}•${NC} Restringir o acesso ao painel Web apenas aos seus IPs (Opção 10 do menu)"
+    [ "$SSH_PORT" -eq 22 ] && echo -e "    ${AMARELO}•${NC} Alterar a porta SSH da padrão 22 para 22022 (Opção 2 do menu)"
+    [ "$SSH_ABERTO_GLOBAL" -eq 1 ] && echo -e "    ${AMARELO}•${NC} Restringir a porta SSH no firewall para seus IPs (Opção 2 do menu)"
+    [ "$WEB_BLINDADA" -eq 0 ] && echo -e "    ${AMARELO}•${NC} Restringir o acesso ao painel Web apenas aos seus IPs (Opção 3 do menu)"
+    [ "$COMMITS_BEHIND" -gt 0 ] && echo -e "    ${AMARELO}•${NC} Atualizar o MagnusBilling 8 (Opção 10 do menu — $COMMITS_BEHIND updates pendentes)"
     echo ""
 fi
 

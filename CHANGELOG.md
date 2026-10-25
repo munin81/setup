@@ -1,6 +1,8 @@
 # Changelog
 
-- feat(setup): menu paginado do Magnus Utils ("Bem-vindo ao Magnus Utils"): Página 1 dedicada e prioritária para MagnusBilling 8 (Produção) e Página 2 para MagnusBilling 7 (Legado), com navegação [P]/[A]
+- feat(manutencao): atualizar_mb8.sh (Opção 10) — script de atualização segura do MagnusBilling 8 com consulta a commits remotos, backup automático pré-update (dump MariaDB e /etc/asterisk), git pull, UpdateMysql e correção obrigatória de permissões Asterisk 20 (664) e Apache
+- feat(diagnostico): checagem de atualizações do MagnusBilling 8 no verificar_seguranca_magnus.sh (Opção 1) — consulta status de commits pendentes no GitHub e recomenda atualização se desatualizado
+- feat(setup): menu paginado do Magnus Utils ("Bem-vindo ao Magnus Utils"): Página 1 dedicada e prioritária para MagnusBilling 8 (Produção) e Página 2 para MagnusBilling 7 (Legado), com navegação [L]/[V]
 - feat(apache): limpar_url_magnus.sh v2.0 (Opção 7) — remoção de /mbilling da URL no MB8/Debian 12 com criação de Alias de compatibilidade retroativa (mantém /mbilling funcionando), checagem de sintaxe do Apache e opção de restaurar
 - fix(diagnostico): corrigir detecção de SSL no verificar_seguranca_magnus.sh — redireciona stderr do apache2ctl -S e valida socket 443 ativo e certificados locais
 - feat(diagnostico): verificar_seguranca_magnus.sh (Opção 9) — auditoria de segurança e conformidade do MagnusBilling: valida porta SSH (reprova se porta 22 padrão), verifica restrição de IP no SSH (firewall) e na Web (Apache 403), audita anti-IP puro, SSL, MySQL 3306 e Fail2ban com veredito final

@@ -243,10 +243,26 @@ while true; do
 done
 
 # Validação do MB7 na origem
-info "Verificando instalação do MagnusBilling na origem..."
+info "Verificando instalação do MagnusBilling e fuso horário na origem..."
 ORIGEM_MB_CHECK=$(ssh_origem "[ -d /var/www/html/mbilling ] && echo 'EXISTE' || echo 'NAO'")
 [ "$ORIGEM_MB_CHECK" != "EXISTE" ] && erro "Diretório /var/www/html/mbilling não encontrado no servidor de origem."
 ok "MagnusBilling presente na origem."
+
+# Sincronizar fuso horário (Timezone) da origem para o destino (evita diferença de +3h UTC no CDR)
+ORIGEM_TZ=$(ssh_origem "timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo 'America/Sao_Paulo'" | tr -d '[:space:]')
+ORIGEM_TZ=${ORIGEM_TZ:-America/Sao_Paulo}
+LOCAL_TZ=$(timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo "")
+if [ -n "$ORIGEM_TZ" ] && [ "$ORIGEM_TZ" != "$LOCAL_TZ" ] && [ $DRY_RUN -eq 0 ]; then
+  info "Ajustando fuso horário do servidor MB8 de '${LOCAL_TZ:-UTC}' para '$ORIGEM_TZ' (mesmo fuso do MB7)..."
+  timedatectl set-timezone "$ORIGEM_TZ" 2>/dev/null || ln -sf "/usr/share/zoneinfo/$ORIGEM_TZ" /etc/localtime 2>/dev/null || true
+  for PHP_INI in /etc/php/*/apache2/php.ini /etc/php/*/cli/php.ini /etc/php/*/fpm/php.ini; do
+    [ -f "$PHP_INI" ] || continue
+    sed -i -E "s|^;?[[:space:]]*date\.timezone[[:space:]]*=.*|date.timezone = $ORIGEM_TZ|" "$PHP_INI" 2>/dev/null || true
+  done
+  ok "Fuso horário sincronizado para $ORIGEM_TZ."
+else
+  ok "Fuso horário validado: ${LOCAL_TZ:-$ORIGEM_TZ}"
+fi
 
 # =====================================================================
 # FASE 3: Contagem e Conferência Prévia dos Dados na Origem
@@ -575,8 +591,9 @@ for MCONF in "${MAGNUS_CONF_FILES[@]}"; do
 done
 ok "Arquivos *_magnus*.conf limpos e recriados do zero."
 
-info "Ajustando donos e permissões (chmod 664 / asterisk:asterisk)..."
+info "Ajustando donos e permissões (chmod 664 / asterisk:asterisk e leitura de gravações)..."
 chown -R asterisk:asterisk /var/lib/asterisk /var/spool/asterisk /var/log/asterisk
+chmod -R a+rX /var/spool/asterisk /var/spool/asterisk/monitor 2>/dev/null || true
 find /etc/asterisk -name "*magnus*" -exec chown asterisk:asterisk {} \; 2>/dev/null
 find /etc/asterisk -name "*magnus*" -exec chmod 664 {} \; 2>/dev/null
 find /etc/asterisk -name "*mbilling*" -exec chown asterisk:asterisk {} \; 2>/dev/null

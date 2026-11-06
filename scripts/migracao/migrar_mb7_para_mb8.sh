@@ -196,10 +196,25 @@ rsync_origem() {
   local SRC="$1"
   local DST="$2"
   local EXTRA_FLAGS="${3:-}"
-  SSHPASS="$ORIGEM_PASS" sshpass -e rsync -az $EXTRA_FLAGS \
+  SSHPASS="$ORIGEM_PASS" sshpass -e rsync -a --info=progress2 $EXTRA_FLAGS \
     -e "ssh -p $ORIGEM_PORT -o StrictHostKeyChecking=accept-new" \
     "$ORIGEM_USER@$ORIGEM_IP:$SRC" "$DST"
 }
+
+ORIGEM_FROZEN=0
+abortar_migracao() {
+  echo ""
+  warn "SINAL DE INTERRUPÇÃO (Ctrl+C) RECEBIDO — Abortando com segurança..."
+  if [ "$ORIGEM_FROZEN" -eq 1 ]; then
+    info "Religando automaticamente Asterisk, Apache e Cron no servidor MB7 de origem ($ORIGEM_IP)..."
+    ssh_origem "systemctl start asterisk apache2 cron 2>/dev/null || systemctl start asterisk httpd crond 2>/dev/null || true"
+    ok "Serviços religados no servidor MB7 de origem."
+  fi
+  info "Limpando processos temporários de transferência..."
+  pkill -P $$ 2>/dev/null || true
+  erro "Migração abortada pelo operador."
+}
+trap abortar_migracao SIGINT SIGTERM
 
 while true; do
   info "Testando conexão SSH com o servidor de origem ($ORIGEM_IP:$ORIGEM_PORT)..."
@@ -355,26 +370,26 @@ tar czf "$BKP_DIR/etc-asterisk-mb8-clean.tar.gz" /etc/asterisk 2>/dev/null || tr
 ok "Backup do /etc/asterisk salvo com sucesso."
 
 # =====================================================================
-# FASE 5: Congelamento de Escritas e Extração do Dump no MB7
+# FASE 5: Extração do Dump no MB7 (Não-Invasivo por Padrão)
 # =====================================================================
 titulo "FASE 5/10 — Extração do banco de dados na origem (MB7)"
 
 echo ""
-info "Para garantir consistência estrita dos dados (sem chamadas/CDRs gravando durante o dump),"
-info "é altamente recomendado parar os serviços Asterisk e Apache no MB7 se for a virada final."
-info "Se o MB7 estiver em produção agora e isto for apenas um TESTE, responda 'n'."
-read -p "  Deseja parar Asterisk, Apache e Cron no MB7 agora? [S/n]: " RESP_FREEZE
-RESP_FREEZE=${RESP_FREEZE:-S}
+info "O mysqldump utiliza --single-transaction (extrai o banco a quente sem travar chamadas)."
+info "Parar os serviços no MB7 só é necessário na virada definitiva para congelar 100% dos CDRs."
+read -p "  Deseja parar Asterisk, Apache e Cron no MB7 durante o dump? [s/N]: " RESP_FREEZE
+RESP_FREEZE=${RESP_FREEZE:-N}
 
 if [[ "$RESP_FREEZE" =~ ^[Ss]$ ]]; then
   info "Parando serviços no servidor MB7 de origem..."
   ssh_origem "systemctl stop asterisk apache2 cron 2>/dev/null || systemctl stop asterisk httpd crond 2>/dev/null || true"
+  ORIGEM_FROZEN=1
   ok "Serviços congelados na origem."
 else
-  warn "Os serviços na origem continuarão ativos durante o dump."
+  ok "Modo não-invasivo: serviços na origem permanecem ativos (zero impacto no MB7)."
 fi
 
-info "Executando mysqldump completo no servidor de origem..."
+info "Executando mysqldump completo no servidor de origem (pressione Ctrl+C se desejar abortar)..."
 ssh_origem "mysqldump --single-transaction --quick --triggers --hex-blob --default-character-set=utf8 mbilling | gzip -c" > "$BKP_DIR/mbilling7-origem.sql.gz" || erro "Falha ao extrair dump da origem."
 
 if [ ! -s "$BKP_DIR/mbilling7-origem.sql.gz" ]; then
@@ -385,8 +400,20 @@ gzip -t "$BKP_DIR/mbilling7-origem.sql.gz" || erro "Arquivo de dump comprimido c
 DUMP_SIZE=$(du -h "$BKP_DIR/mbilling7-origem.sql.gz" | awk '{print $1}')
 ok "Dump extraído e validado com sucesso (Tamanho: $DUMP_SIZE)."
 
+if [ "$ORIGEM_FROZEN" -eq 1 ]; then
+  echo ""
+  read -p "  O dump já terminou! Deseja religar os serviços no MB7 enquanto o MB8 processa? [S/n]: " RESP_UNFREEZE
+  RESP_UNFREEZE=${RESP_UNFREEZE:-S}
+  if [[ "$RESP_UNFREEZE" =~ ^[Ss]$ ]]; then
+    info "Religando Asterisk, Apache e Cron no servidor MB7 de origem..."
+    ssh_origem "systemctl start asterisk apache2 cron 2>/dev/null || systemctl start asterisk httpd crond 2>/dev/null || true"
+    ORIGEM_FROZEN=0
+    ok "Serviços religados na origem!"
+  fi
+fi
+
 # =====================================================================
-# FASE 6: Transferência de Áudios e Gravações
+# FASE 6: Transferência de Áudios e Gravações (Com Opção Rápida e Progresso)
 # =====================================================================
 titulo "FASE 6/10 — Sincronização de áudios e gravações"
 
@@ -396,31 +423,16 @@ info "serão regenerados dinamicamente pelo MB8 com base nas tabelas migradas."
 echo ""
 
 if [ "$MODO_OUTRO_SERVIDOR" -eq 1 ]; then
-  info "Limpando áudios de URA customizados e gravações da migração anterior..."
-  rm -rf /var/spool/asterisk/monitor/* 2>/dev/null || true
+  info "Limpando áudios de URA customizados da migração anterior..."
   rm -f /var/lib/asterisk/sounds/idIvrDid* /var/lib/asterisk/sounds/ivr* /var/lib/asterisk/sounds/moh* 2>/dev/null || true
   rm -f /usr/local/src/magnus/sounds/* 2>/dev/null || true
-  ok "Gravações e áudios customizados da migração anterior removidos."
+  ok "Áudios customizados da migração anterior removidos."
 fi
 
-info "Sincronizando arquivos de áudio (/var/lib/asterisk/sounds/)..."
+info "Sincronizando arquivos de áudio de URA (/var/lib/asterisk/sounds/)..."
 mkdir -p /var/lib/asterisk/sounds
 rsync_origem "/var/lib/asterisk/sounds/" "/var/lib/asterisk/sounds/" || warn "Aviso na cópia de sons."
 ok "Áudios sincronizados."
-
-info "Verificando gravações de chamadas (/var/spool/asterisk/monitor/)..."
-ORIGEM_HAS_MONITOR=$(ssh_origem "[ -d /var/spool/asterisk/monitor ] && echo 'SIM' || echo 'NAO'")
-if [ "$ORIGEM_HAS_MONITOR" = "SIM" ]; then
-  mkdir -p /var/spool/asterisk/monitor
-  if [ "$MODO_OUTRO_SERVIDOR" -eq 1 ]; then
-    rsync_origem "/var/spool/asterisk/monitor/" "/var/spool/asterisk/monitor/" "--delete" || warn "Aviso na cópia de gravações."
-  else
-    rsync_origem "/var/spool/asterisk/monitor/" "/var/spool/asterisk/monitor/" || warn "Aviso na cópia de gravações."
-  fi
-  ok "Gravações sincronizadas."
-else
-  info "Diretório de monitoramento não continha dados para sincronizar."
-fi
 
 info "Verificando músicas de espera (/var/lib/asterisk/moh/)..."
 ORIGEM_HAS_MOH=$(ssh_origem "[ -d /var/lib/asterisk/moh ] && echo 'SIM' || echo 'NAO'")
@@ -432,6 +444,34 @@ if [ "$ORIGEM_HAS_MOH" = "SIM" ]; then
     rsync_origem "/var/lib/asterisk/moh/" "/var/lib/asterisk/moh/" || warn "Aviso na cópia de MOH."
   fi
   ok "Músicas de espera sincronizadas."
+fi
+
+info "Calculando volume de gravações de chamadas (/var/spool/asterisk/monitor/)..."
+MONITOR_INFO=$(ssh_origem "if [ -d /var/spool/asterisk/monitor ]; then du -sh /var/spool/asterisk/monitor 2>/dev/null | awk '{print \$1}'; else echo 'NAO'; fi")
+if [ "$MONITOR_INFO" != "NAO" ] && [ -n "$MONITOR_INFO" ]; then
+  echo ""
+  info "Tamanho da pasta de gravações (/var/spool/asterisk/monitor) na origem: ${NEGRITO}$MONITOR_INFO${NC}"
+  echo "    1) [Recomendado / Rápido] Pular gravações de chamadas agora (conclui a migração em segundos)"
+  echo "    2) Copiar todas as gravações agora ($MONITOR_INFO — exibe barra de progresso)"
+  read -p "  Escolha [1]: " RESP_MONITOR
+  RESP_MONITOR=${RESP_MONITOR:-1}
+  if [ "$RESP_MONITOR" = "2" ]; then
+    mkdir -p /var/spool/asterisk/monitor
+    if [ "$MODO_OUTRO_SERVIDOR" -eq 1 ]; then
+      rm -rf /var/spool/asterisk/monitor/* 2>/dev/null || true
+      rsync_origem "/var/spool/asterisk/monitor/" "/var/spool/asterisk/monitor/" "--delete" || warn "Aviso na cópia de gravações."
+    else
+      rsync_origem "/var/spool/asterisk/monitor/" "/var/spool/asterisk/monitor/" || warn "Aviso na cópia de gravações."
+    fi
+    ok "Gravações sincronizadas."
+  else
+    if [ "$MODO_OUTRO_SERVIDOR" -eq 1 ]; then
+      rm -rf /var/spool/asterisk/monitor/* 2>/dev/null || true
+    fi
+    ok "Cópia de gravações antigas pulada (migração rápida priorizada)."
+  fi
+else
+  info "Diretório de gravações vazio ou ausente na origem."
 fi
 
 # =====================================================================

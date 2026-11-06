@@ -36,6 +36,7 @@ valida_ip() {
 }
 
 LIB_IP="$1"
+MODO_RAPIDO="$2"
 
 while [ -z "$LIB_IP" ] || ! valida_ip "$LIB_IP"; do
   if [ -n "$LIB_IP" ]; then
@@ -45,22 +46,31 @@ while [ -z "$LIB_IP" ] || ! valida_ip "$LIB_IP"; do
   LIB_IP=$(echo "$LIB_IP" | tr -d ' ')
 done
 
-echo ""
-info "Selecione o nível de liberação para o IP ${NEGRITO}$LIB_IP${NC}:"
-echo "  1) SSH (portas 22 e 22022) — [Recomendado para migração]"
-echo "  2) Acesso Total (todas as portas / Zona de Confiança) — [Ideal entre servidores confiáveis]"
-echo "  3) SSH + MySQL (portas 22, 22022 e 3306) — [Migração + DBeaver/Admin]"
-echo ""
-read -p "  Escolha a opção [1-3, padrão 1]: " OPCAO_PORTA
-OPCAO_PORTA=${OPCAO_PORTA:-1}
+if [ "$MODO_RAPIDO" = "--ssh" ] || [ "$MODO_RAPIDO" = "1" ]; then
+  OPCAO_PORTA=1
+elif [ "$MODO_RAPIDO" = "--all" ] || [ "$MODO_RAPIDO" = "2" ]; then
+  OPCAO_PORTA=2
+else
+  echo ""
+  info "Selecione o nível de liberação para o IP ${NEGRITO}$LIB_IP${NC}:"
+  echo "  1) SSH (portas 22 e 22022) — [Recomendado para migração]"
+  echo "  2) Acesso Total (todas as portas / Zona de Confiança) — [Ideal entre servidores confiáveis]"
+  echo "  3) SSH + MySQL (portas 22, 22022 e 3306) — [Migração + DBeaver/Admin]"
+  echo ""
+  read -p "  Escolha a opção [1-3, padrão 1]: " OPCAO_PORTA
+  OPCAO_PORTA=${OPCAO_PORTA:-1}
+fi
 
 # ---------------------------------------------------------------------
-# 1. Desbloquear no Fail2ban (se instalado e ativo)
+# 1. Desbloquear no Fail2ban (compatível com MB8 e MB7 legado)
 # ---------------------------------------------------------------------
 if command -v fail2ban-client >/dev/null 2>&1 && systemctl is-active fail2ban >/dev/null 2>&1; then
   info "Verificando se o IP $LIB_IP está bloqueado no Fail2ban..."
   fail2ban-client unbanip "$LIB_IP" >/dev/null 2>&1 || true
-  ok "Fail2ban verificado (IP desbloqueado se estava em ban)."
+  for JAIL in sshd ssh ssh-iptables asterisk; do
+    fail2ban-client set "$JAIL" unbanip "$LIB_IP" >/dev/null 2>&1 || true
+  done
+  ok "Fail2ban verificado (IP desbloqueado em todas as jails se estava em ban)."
 fi
 
 # ---------------------------------------------------------------------

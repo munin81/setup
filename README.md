@@ -7,7 +7,7 @@
 
 Coleção de scripts e procedimentos versionados que padronizam a instalação, customização, troubleshooting e manutenção de servidores **MagnusBilling 8 (Asterisk 20 + PJSIP) e 7.x** sobre Debian e Ubuntu em operações de VoIP.
 
-> **Compatibilidade:** O pacote suporta a instalação e manutenção tanto do **MagnusBilling 8** (oficial: Debian 11, 12, 13 e Ubuntu LTS com Asterisk 20 e PJSIP) quanto do **MagnusBilling 7** (Debian 11/12 com Asterisk 13 e chan_sip). Inclui ferramenta automatizada para migração segura side-by-side de MagnusBilling 7 para MagnusBilling 8 com conversão de banco e PJSIP via `UpdateMysql`.
+> **Compatibilidade:** O pacote suporta a instalação e manutenção tanto do **MagnusBilling 8** (oficial: Debian 11, 12, 13 e Ubuntu LTS com Asterisk 20 e PJSIP) quanto do **MagnusBilling 7** (Debian 11/12 com Asterisk 13 e chan_sip). Inclui ferramenta automatizada para migração segura side-by-side de MagnusBilling 7 para MagnusBilling 8 com conversão de banco e PJSIP via `UpdateMysql`, além de utilitário de troca de IP do servidor (Cutover de Produção) com rollback automático.
 
 ## Instalação Rápida (Interativa)
 
@@ -20,12 +20,11 @@ bash <(curl -sSL https://raw.githubusercontent.com/munin81/setup/main/setup.sh)
 ## Estrutura de Diretórios
 
 - `scripts/lib/`: Funções globais e helpers comuns a todos os scripts (`common.sh`).
-- `scripts/diagnostico/`: Scripts read-only para health-check e auditoria.
-- `scripts/instalacao/`: Ajustes pós-instalação, firewall e customizações padrão.
-- `scripts/manutencao/`: Rotinas de operação (remoção de logs, recarga de DID, backups).
-- `scripts/migracao/`: Scripts de backup e migração de dados de servidor Magnus. (Nota: Configurações de firewall, SSL e cron são feitas através de scripts separados pós-migração).
-- `docs/`: Manuais operacionais, tutoriais de runbooks e registro de bugs conhecidos.
-- `configs/`: Templates de arquivos de configuração (Asterisk, Fail2ban, Firewalld).
+- `scripts/diagnostico/`: Scripts read-only para health-check e auditoria de segurança.
+- `scripts/instalacao/`: Instalação oficial, blindagem SSH/Web, certificado SSL e limpeza de URL.
+- `scripts/manutencao/`: Rotinas de operação (atualização MB8, repasse de DID, limpeza CDR, usuários DB).
+- `scripts/migracao/`: Migração de dados (MB7 ➔ MB8 e MB7 ➔ MB7) e troca de IP do servidor para cutover de produção com rollback automático (`trocar_ip_servidor.sh`).
+- `scripts/relatorios/`: Exportação de relatórios CSV de CDR.
 
 ## Convenções
 

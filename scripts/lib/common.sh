@@ -16,7 +16,7 @@ NC='\033[0m'
 
 ok()     { echo -e "  ${VERDE}✓${NC} $1"; }
 warn()   { echo -e "  ${AMARELO}⚠${NC} $1"; }
-erro()   { echo -e "  ${VERMELHO}✗${NC} $1"; }
+erro()   { echo -e "  ${VERMELHO}✗ ERRO:${NC} $1"; exit 1; }
 info()   { echo -e "  ${AZUL}ℹ${NC} $1"; }
 titulo() { echo ""; echo -e "${NEGRITO}${AZUL}═══ $1 ═══${NC}"; }
 

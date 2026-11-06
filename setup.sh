@@ -124,26 +124,28 @@ show_page_1() {
     echo -e "    ${AZUL}↳${NC} Conecta via SSH no MB7, migra dados, converte PJSIP e executa UpdateMysql."
     echo -e " ${NEGRITO}10.${NC} Atualizar MagnusBilling 8 Oficial"
     echo -e "    ${AZUL}↳${NC} Backup pré-update, git pull, UpdateMysql e correção de permissões."
+    echo -e " ${NEGRITO}11.${NC} Trocar IP do Servidor (Cutover de Migração / Assumir IP de Produção)"
+    echo -e "    ${AZUL}↳${NC} Assume o IP do servidor antigo desligado (atualiza Linux, Asterisk, DB e gera rollback)."
     echo ""
     echo "=================================================================="
     echo -e "${NEGRITO}${AZUL}                  [ MANUTENÇÃO DE BANCO ]${NC}"
     echo "=================================================================="
-    echo -e " ${NEGRITO}11.${NC} Repasse em Massa de DIDs"
+    echo -e " ${NEGRITO}12.${NC} Repasse em Massa de DIDs"
     echo -e "    ${AZUL}↳${NC} Transfere DIDs para outro cliente e atualiza as rotas SIP."
-    echo -e " ${NEGRITO}12.${NC} Limpeza Profunda de Inativos (CDR e Ofertas)"
+    echo -e " ${NEGRITO}13.${NC} Limpeza Profunda de Inativos (CDR e Ofertas)"
     echo -e "    ${AZUL}↳${NC} Exclui histórico de usuários cancelados por período."
-    echo -e " ${NEGRITO}13.${NC} Criar Usuário de Banco (DBeaver / N8N / acesso remoto)"
+    echo -e " ${NEGRITO}14.${NC} Criar Usuário de Banco (DBeaver / N8N / acesso remoto)"
     echo -e "    ${AZUL}↳${NC} Cria usuário MySQL por IP com senha oculta fora do ps aux."
-    echo -e " ${NEGRITO}14.${NC} Gerar Relatório CSV de CDR"
+    echo -e " ${NEGRITO}15.${NC} Gerar Relatório CSV de CDR"
     echo -e "    ${AZUL}↳${NC} Exporta histórico de chamadas (CDR) por usuário e período."
-    echo -e " ${NEGRITO}15.${NC} Trocar Senha do Painel Web (root / usuário)"
+    echo -e " ${NEGRITO}16.${NC} Trocar Senha do Painel Web (root / usuário)"
     echo -e "    ${AZUL}↳${NC} Altera com segurança a senha de acesso web do MagnusBilling."
     echo ""
     echo "=================================================================="
     echo -e " ${NEGRITO}[L]${NC} 👉 Ver ferramentas LEGADAS (MagnusBilling 7)"
     echo -e " ${NEGRITO}[0]${NC} Sair"
     echo "=================================================================="
-    read -p "Opção [1-15 ou L]: " OPTION
+    read -p "Opção [1-16 ou L]: " OPTION
 }
 
 show_page_2() {
@@ -162,12 +164,16 @@ show_page_2() {
     echo -e "    ${AZUL}↳${NC} Varre serviços, corrige permissões dos confs e alerta erros."
     echo -e " ${NEGRITO}25.${NC} Blindagem de Firewall IPtables (Legado MB7)"
     echo -e "    ${AZUL}↳${NC} Script de regras iptables puras clássicas da documentação antiga do MB7."
+    echo -e " ${NEGRITO}26.${NC} Trocar IP do Servidor (Cutover de Migração / Assumir IP de Produção)"
+    echo -e "    ${AZUL}↳${NC} Assume o IP do servidor antigo desligado (atualiza Linux, Asterisk, DB e gera rollback)."
+    echo -e " ${NEGRITO}27.${NC} Liberar IP no Firewall (Autorizar MB8 para Migração / SSH)"
+    echo -e "    ${AZUL}↳${NC} Libera o IP do servidor novo (MB8) no firewalld/iptables e fail2ban deste MB7."
     echo ""
     echo "=================================================================="
     echo -e " ${NEGRITO}[V]${NC} 👈 VOLTAR para o MagnusBilling 8 (Principal)"
     echo -e " ${NEGRITO}[0]${NC} Sair"
     echo "=================================================================="
-    read -p "Opção [21-25 ou V]: " OPTION
+    read -p "Opção [21-27 ou V]: " OPTION
 }
 
 while true; do
@@ -239,26 +245,31 @@ while true; do
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         11)
-            bash "$PROJECT_DIR/scripts/manutencao/alterar_bloco_did.sh"
+            bash "$PROJECT_DIR/scripts/migracao/trocar_ip_servidor.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         12)
-            bash "$PROJECT_DIR/scripts/manutencao/deletar_cdr_oferta.sh"
+            bash "$PROJECT_DIR/scripts/manutencao/alterar_bloco_did.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         13)
-            bash "$PROJECT_DIR/scripts/manutencao/criar_usuario_db.sh"
+            bash "$PROJECT_DIR/scripts/manutencao/deletar_cdr_oferta.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         14)
-            bash "$PROJECT_DIR/scripts/relatorios/gerar_csv_cdr.sh"
+            bash "$PROJECT_DIR/scripts/manutencao/criar_usuario_db.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
         15)
+            bash "$PROJECT_DIR/scripts/relatorios/gerar_csv_cdr.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        16)
             bash "$PROJECT_DIR/scripts/manutencao/alterar_senha_web.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
@@ -287,6 +298,16 @@ while true; do
             ;;
         25)
             bash "$PROJECT_DIR/scripts/instalacao/iptables-magnus.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        26)
+            bash "$PROJECT_DIR/scripts/migracao/trocar_ip_servidor.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        27)
+            bash "$PROJECT_DIR/scripts/manutencao/liberar_ip_firewall.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

@@ -1,5 +1,8 @@
 # Changelog
 
+- feat(migracao): migrar_mb7_para_mb8.sh v2.0 — suporte a re-migração limpa (mesmo MB7 ou outro MB7 diferente): recuperação automática do snapshot original do MB8 limpo (/root/.mb8-clean-reference), merge de pkg_configuration estrito por config_key (sem colisão de ID), limpeza de gravações/áudios e truncamento+regeneração integral de todos os *_magnus*.conf (PJSIP, Filas, DIDs, URAs, IAX, MOH), além de proteção contra conflito de registro SIP (register=1) com a produção ativa
+- feat(migracao): trocar_ip_servidor.sh (Opção 11 / 26) — script de cutover de produção para assumir o IP do servidor antigo desligado com validação anti-conflito (ping/ARP), atualização de rede Linux (ifupdown/netplan/nmcli e conversão DHCP->estático), Asterisk (PJSIP/chan_sip external_media_address/externip), banco mbilling, envio de Gratuitous ARP e geração automática de rollback (/root/reverter_ip.sh)
+- chore(limpeza): remoção de arquivos SQL temporários, scripts obsoletos (auditoria_magnus.sh, migrate_doc.rst, scratch/) e reforço completo do .gitignore
 - feat(manutencao): atualizar_mb8.sh (Opção 10) — script de atualização segura do MagnusBilling 8 com consulta a commits remotos, backup automático pré-update (dump MariaDB e /etc/asterisk), git pull, UpdateMysql e correção obrigatória de permissões Asterisk 20 (664) e Apache
 - feat(diagnostico): checagem de atualizações do MagnusBilling 8 no verificar_seguranca_magnus.sh (Opção 1) — consulta status de commits pendentes no GitHub e recomenda atualização se desatualizado
 - feat(setup): menu paginado do Magnus Utils ("Bem-vindo ao Magnus Utils"): Página 1 dedicada e prioritária para MagnusBilling 8 (Produção) e Página 2 para MagnusBilling 7 (Legado), com navegação [L]/[V]

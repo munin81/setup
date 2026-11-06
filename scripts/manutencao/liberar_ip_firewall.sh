@@ -62,15 +62,19 @@ else
 fi
 
 # ---------------------------------------------------------------------
-# 1. Desbloquear no Fail2ban (compatível com MB8 e MB7 legado)
+# 1. Desbloquear no Fail2ban (rápido: só aciona socket se o IP estiver banido)
 # ---------------------------------------------------------------------
 if command -v fail2ban-client >/dev/null 2>&1 && systemctl is-active fail2ban >/dev/null 2>&1; then
   info "Verificando se o IP $LIB_IP está bloqueado no Fail2ban..."
-  fail2ban-client unbanip "$LIB_IP" >/dev/null 2>&1 || true
-  for JAIL in sshd ssh ssh-iptables asterisk; do
-    fail2ban-client set "$JAIL" unbanip "$LIB_IP" >/dev/null 2>&1 || true
-  done
-  ok "Fail2ban verificado (IP desbloqueado em todas as jails se estava em ban)."
+  # Checagem instantânea em memória no kernel (evita varrer milhares de IPs de scanners SIP no socket do fail2ban)
+  if iptables -S 2>/dev/null | grep -E "f2b-|fail2ban-" | grep -qF "$LIB_IP"; then
+    for JAIL in sshd ssh ssh-iptables asterisk; do
+      timeout 3 fail2ban-client set "$JAIL" unbanip "$LIB_IP" >/dev/null 2>&1 || true
+    done
+    ok "IP $LIB_IP estava banido no Fail2ban e foi desbloqueado."
+  else
+    ok "Fail2ban verificado instantaneamente (IP não consta na lista de banidos)."
+  fi
 fi
 
 # ---------------------------------------------------------------------

@@ -1,5 +1,6 @@
 # Changelog
 
+- feat(manutencao): configurar_horario_brasil.sh (Opção 17 / 28) — diagnóstico e ajuste de fuso horário para os fusos oficiais do Brasil (Brasília, Cuiabá, Manaus, Rio Branco, Noronha e capitais), sincronizando Linux (timedatectl/NTP), todos os php.ini (Apache/CLI/FPM) e MariaDB (CDRs)
 - feat(migracao): migrar_mb7_para_mb8.sh v2.0 — suporte a re-migração limpa (mesmo MB7 ou outro MB7 diferente): recuperação automática do snapshot original do MB8 limpo (/root/.mb8-clean-reference), merge de pkg_configuration estrito por config_key (sem colisão de ID), limpeza de gravações/áudios e truncamento+regeneração integral de todos os *_magnus*.conf (PJSIP, Filas, DIDs, URAs, IAX, MOH), além de proteção contra conflito de registro SIP (register=1) com a produção ativa
 - feat(migracao): trocar_ip_servidor.sh (Opção 11 / 26) — script de cutover de produção para assumir o IP do servidor antigo desligado com validação anti-conflito (ping/ARP), atualização de rede Linux (ifupdown/netplan/nmcli e conversão DHCP->estático), Asterisk (PJSIP/chan_sip external_media_address/externip), banco mbilling, envio de Gratuitous ARP e geração automática de rollback (/root/reverter_ip.sh)
 - chore(limpeza): remoção de arquivos SQL temporários, scripts obsoletos (auditoria_magnus.sh, migrate_doc.rst, scratch/) e reforço completo do .gitignore

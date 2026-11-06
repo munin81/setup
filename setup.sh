@@ -140,12 +140,14 @@ show_page_1() {
     echo -e "    ${AZUL}↳${NC} Exporta histórico de chamadas (CDR) por usuário e período."
     echo -e " ${NEGRITO}16.${NC} Trocar Senha do Painel Web (root / usuário)"
     echo -e "    ${AZUL}↳${NC} Altera com segurança a senha de acesso web do MagnusBilling."
+    echo -e " ${NEGRITO}17.${NC} Verificar e Ajustar Fuso Horário do Brasil (Linux, PHP e MariaDB)"
+    echo -e "    ${AZUL}↳${NC} Corrige horário +3h UTC nos CDRs e sincroniza Brasília/Cuiabá/Manaus/Acre."
     echo ""
     echo "=================================================================="
     echo -e " ${NEGRITO}[L]${NC} 👉 Ver ferramentas LEGADAS (MagnusBilling 7)"
     echo -e " ${NEGRITO}[0]${NC} Sair"
     echo "=================================================================="
-    read -p "Opção [1-16 ou L]: " OPTION
+    read -p "Opção [1-17 ou L]: " OPTION
 }
 
 show_page_2() {
@@ -168,12 +170,14 @@ show_page_2() {
     echo -e "    ${AZUL}↳${NC} Assume o IP do servidor antigo desligado (atualiza Linux, Asterisk, DB e gera rollback)."
     echo -e " ${NEGRITO}27.${NC} Liberar IP no Firewall (Autorizar MB8 para Migração / SSH)"
     echo -e "    ${AZUL}↳${NC} Libera o IP do servidor novo (MB8) no firewalld/iptables e fail2ban deste MB7."
+    echo -e " ${NEGRITO}28.${NC} Verificar e Ajustar Fuso Horário do Brasil (Linux, PHP e MariaDB)"
+    echo -e "    ${AZUL}↳${NC} Corrige horário +3h UTC nos CDRs e sincroniza Brasília/Cuiabá/Manaus/Acre."
     echo ""
     echo "=================================================================="
     echo -e " ${NEGRITO}[V]${NC} 👈 VOLTAR para o MagnusBilling 8 (Principal)"
     echo -e " ${NEGRITO}[0]${NC} Sair"
     echo "=================================================================="
-    read -p "Opção [21-27 ou V]: " OPTION
+    read -p "Opção [21-28 ou V]: " OPTION
 }
 
 while true; do
@@ -274,6 +278,11 @@ while true; do
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;
+        17)
+            bash "$PROJECT_DIR/scripts/manutencao/configurar_horario_brasil.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
 
         # --- PÁGINA 2: MB7 LEGADO ---
         21)
@@ -308,6 +317,11 @@ while true; do
             ;;
         27)
             bash "$PROJECT_DIR/scripts/manutencao/liberar_ip_firewall.sh"
+            echo ""
+            read -p "Pressione ENTER para voltar ao menu..."
+            ;;
+        28)
+            bash "$PROJECT_DIR/scripts/manutencao/configurar_horario_brasil.sh"
             echo ""
             read -p "Pressione ENTER para voltar ao menu..."
             ;;

@@ -1,0 +1,41 @@
+# Changelog
+
+- fix(horario): configurar_horario_brasil.sh v2.0 (Opção 18 / 28) — corrige o override /etc/php/*/mods-available/magnusbilling.ini (criado pelo install.sh do MB8 com Etc/UTC e carregado via conf.d/20-magnusbilling.ini após o php.ini), garantindo que o AGI do MagnusBilling (CalcAgi.php / DidAgi.php) grave o starttime do CDR no fuso correto do Brasil, além de oferecer correção automática (-3h) para CDRs gravados com horário futuro
+- feat(webrtc): ativar_webrtc_mb8.sh (Opção 8) e atualização do configurar_ssl_mb8.sh — ativa servidor HTTP/WSS interno do Asterisk 20 na porta 8089 (/etc/asterisk/http.conf), exporta certificados SSL Let's Encrypt (/etc/asterisk/keys/asterisk.pem e asterisk.key com hook de renovação automática), adiciona transporte [transport-wss] no /etc/asterisk/pjsip.conf, libera porta 8089/tcp no firewalld/iptables e carrega módulos WebSocket
+- security(placeholders): limpeza de exibição automática de IP da sessão SSH ($SSH_CLIENT) nos prompts de blindar_web_magnus.sh, blindar_ssh_magnus.sh e iptables-magnus.sh, utilizando apenas placeholders genéricos (ex: 1.2.3.4 ou 1.2.3.0/24)
+- fix(mb8): correção crítica de truncamento do extensions_magnus.conf (Auto-Healing do contexto [billing]), sanitização de fromuser em contas SIP dinâmicas (host=dynamic) no banco e no AsteriskAccess.php (evita corrupção de CallerID Inbound no PJSIP) e Smoke Test obrigatório pós-migração/update em migrar_mb7_para_mb8.sh e atualizar_mb8.sh
+- feat(manutencao): configurar_horario_brasil.sh (Opção 17 / 28) — diagnóstico e ajuste de fuso horário para os fusos oficiais do Brasil (Brasília, Cuiabá, Manaus, Rio Branco, Noronha e capitais), sincronizando Linux (timedatectl/NTP), todos os php.ini (Apache/CLI/FPM) e MariaDB (CDRs)
+- feat(migracao): migrar_mb7_para_mb8.sh v2.0 — suporte a re-migração limpa (mesmo MB7 ou outro MB7 diferente): recuperação automática do snapshot original do MB8 limpo (/root/.mb8-clean-reference), merge de pkg_configuration estrito por config_key (sem colisão de ID), limpeza de gravações/áudios e truncamento+regeneração integral de todos os *_magnus*.conf (PJSIP, Filas, DIDs, URAs, IAX, MOH), além de proteção contra conflito de registro SIP (register=1) com a produção ativa
+- feat(migracao): trocar_ip_servidor.sh (Opção 11 / 26) — script de cutover de produção para assumir o IP do servidor antigo desligado com validação anti-conflito (ping/ARP), atualização de rede Linux (ifupdown/netplan/nmcli e conversão DHCP->estático), Asterisk (PJSIP/chan_sip external_media_address/externip), banco mbilling, envio de Gratuitous ARP e geração automática de rollback (/root/reverter_ip.sh)
+- chore(limpeza): remoção de arquivos SQL temporários, scripts obsoletos (auditoria_magnus.sh, migrate_doc.rst, scratch/) e reforço completo do .gitignore
+- feat(manutencao): atualizar_mb8.sh (Opção 10) — script de atualização segura do MagnusBilling 8 com consulta a commits remotos, backup automático pré-update (dump MariaDB e /etc/asterisk), git pull, UpdateMysql e correção obrigatória de permissões Asterisk 20 (664) e Apache
+- feat(diagnostico): checagem de atualizações do MagnusBilling 8 no verificar_seguranca_magnus.sh (Opção 1) — consulta status de commits pendentes no GitHub e recomenda atualização se desatualizado
+- feat(setup): menu paginado do Magnus Utils ("Bem-vindo ao Magnus Utils"): Página 1 dedicada e prioritária para MagnusBilling 8 (Produção) e Página 2 para MagnusBilling 7 (Legado), com navegação [L]/[V]
+- feat(apache): limpar_url_magnus.sh v2.0 (Opção 7) — remoção de /mbilling da URL no MB8/Debian 12 com criação de Alias de compatibilidade retroativa (mantém /mbilling funcionando), checagem de sintaxe do Apache e opção de restaurar
+- fix(diagnostico): corrigir detecção de SSL no verificar_seguranca_magnus.sh — redireciona stderr do apache2ctl -S e valida socket 443 ativo e certificados locais
+- feat(diagnostico): verificar_seguranca_magnus.sh (Opção 9) — auditoria de segurança e conformidade do MagnusBilling: valida porta SSH (reprova se porta 22 padrão), verifica restrição de IP no SSH (firewall) e na Web (Apache 403), audita anti-IP puro, SSL, MySQL 3306 e Fail2ban com veredito final
+- feat(seguranca): desfazer_bloqueios_magnus.sh (Opção 17) — utilitário seguro para reverter bloqueios por IP da Web e do SSH (com opção de retornar a porta SSH para 22 ou manter customizada), reabrindo os acessos globalmente no Apache e Firewalld/IPtables
+- feat(seguranca): blindar_ssh_magnus.sh v2.0 (Opção 6) — alteração interativa da porta SSH (sugestão padrão 22022), compatibilidade transparente com Debian 12 (migração de ssh.socket para ssh.service tradicional), permissão dupla temporária no firewall durante validação e deadman switch de 300s
+- feat(seguranca): modo 403 Forbidden discreto (stealth) no blindar_web_magnus.sh (não exibe marca/logo para visitantes externos) e aumento do tempo do deadman switch para 300s (5 minutos) tanto na blindagem Web quanto SSH
+- feat(ssl): proteção anti-acesso por IP puro no configurar_ssl_mb8.sh — Apache redireciona automaticamente qualquer requisição por IP direto para o domínio canônico seguro (https)
+- feat(ssl): configurar_ssl_mb8.sh (Opção 4) — emissor de SSL Let's Encrypt para MB8 no Debian 12 com pré-validação DNS, auto-configuração do VirtualHost no Apache 2.4, bypass de ACME challenge para renovações, integração automática de certificados com Asterisk 20 (WebRTC/WSS) e hook de deploy
+- refactor(ssl): configurar_ssl_mb7_legado.sh (Opção 16) — renomeado script legado para emissão de SSL no MagnusBilling 7
+- feat(firewall): liberar_ip_firewall.sh (Opção 15) — libera IP de servidor (MB8) no firewall (firewalld/iptables) e fail2ban para SSH (portas 22 e 22022) ou acesso total para migração
+- feat(migracao): migrar_mb7_para_mb8.sh — migração automatizada side-by-side de MB7 para MB8: preservação de tabelas Magnus Sentinel, merge inteligente de parâmetros de configuração nativos do MB8, detecção do módulo app_mbilling, regeneração automática de peers PJSIP e validação cruzada de contagem de registros pós-migração
+- feat(mb8): suporte oficial ao MagnusBilling 8 (Asterisk 20 + PJSIP) no instalar_magnus.sh com repositório oficial magnussolution/magnusbilling
+- feat(setup): menu atualizado com opções dedicadas para MB8 e MB7 legado
+- feat(banco): criar_usuario_db.sh — cria/atualiza usuário MySQL por IP de origem com senha oculta (read -s, via stdin, fora do ps aux), escopo full ou só mbilling, nada gravado em log
+- feat(seguranca): blindar_web_magnus.sh v2 — restrição global via <Location />, padroniza/limpa blindagens antigas (acesso_negado.html), torna o redirect :80 incondicional e libera /.well-known/acme-challenge (não quebra renovação SSL)
+- feat(seguranca): blindar_web_magnus.sh — restringe o painel web a IPs/blocos autorizados, cobrindo o acesso pelo domínio E pelo IP direto, com página "Acesso Não Autorizado"
+- fix(seguranca): correções críticas — deletar_cdr_oferta atômico com backup; senha fora do ps aux em auditoria/migrar; iptables com persistência no reboot e RTP 10000-60000
+- feat(setup): nova interface do menu dividida em categorias com descritivos explicativos
+- security(auditoria): padronização de placeholders genéricos para IPs e domínios
+- security(manutencao): uso exclusivo de MYSQL_PWD via ambiente para ocultar credenciais do ps aux
+- security(iptables): adiciona interatividade na coleta de IP e proteção contra lock-out (deadman switch dinâmico)
+- feat(apache): adiciona script para limpar URL do painel (remover /mbilling)
+- feat(ssl): adiciona script de instalação e configuração do Certbot Let's Encrypt (configurar_ssl_magnus.sh)
+- fix(setup): adiciona mecanismo de auto-reload para evitar problema de cache do GitHub no curl
+- fix(migrar): v5.2.1 remove bug do ALTER USER e permite usuários dinâmicos (admin e api)
+- docs: confirmar firewalld como padrão Magnus Debian 10/11
+- feat(migrar): v5.2 adiciona restart de serviços e validação final
+- feat(migrar): v5.1 escopo enxuto (sem firewall/SSL)

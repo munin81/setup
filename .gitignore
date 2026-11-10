@@ -1,0 +1,65 @@
+# Logs e backups temporários
+*.log
+*.bak
+*.bak.*
+*.tmp
+*.temp
+*.old
+*.orig
+.bash_history
+
+# Credenciais, segredos e certificados
+*password*
+*secret*
+*.env
+*.env.*
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+
+# Dumps de banco de dados e arquivos compactados
+*.sql
+*.sql.gz
+*.sql.bz2
+*.sql.xz
+*.dump
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+
+# Editores, IDEs e Agentes AI locais
+.vscode/
+.idea/
+.claude/
+.cursor/
+.windsurf/
+.gemini/
+*.swp
+*.swo
+*~
+
+# Arquivos de Sistema Operacional (Windows / macOS / Linux)
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Scripts e pastas de rascunho / testes locais
+scratch/
+tmp/
+temp/
+files/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.rst
+
+# Documentação interna — SOMENTE LOCAL, não publicar no GitHub
+AGENTS.md
+MAGNUS_BUGS.md
+MAGNUS_REFERENCE.md
+magnus-setup-spec.md
+RELATORIO_SEGURANCA.md

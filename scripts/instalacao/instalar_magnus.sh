@@ -93,6 +93,11 @@ case "$ESCOLHA" in
         warn "Distribuição '$PRETTY_NAME' não testada oficialmente para o MB8."
         ;;
     esac
+
+    # Verifica se houve alterações na arquitetura do instalador/repositório oficial do MB8
+    if declare -f verificar_compatibilidade_mb8 >/dev/null 2>&1; then
+      verificar_compatibilidade_mb8
+    fi
     ;;
   2)
     TITULO_VERSAO="MagnusBilling 7 (Asterisk 13 + chan_sip)"

@@ -298,9 +298,9 @@ else
 fi
 
 # ---------------------------------------------------------------------
-# 8. Checagem de Atualização do MagnusBilling (Versão e Patches)
+# 8. Checagem de Atualização e Arquitetura do MagnusBilling 8
 # ---------------------------------------------------------------------
-titulo "8. Versão e Patches de Segurança do MagnusBilling"
+titulo "8. Versão, Patches e Compatibilidade de Arquitetura do MagnusBilling"
 
 MB_DIR="/var/www/html/mbilling"
 COMMITS_BEHIND=0
@@ -333,6 +333,25 @@ else
     check_result "WARN" \
         "Diretório $MB_DIR não é um repositório git rastreado" \
         "Recomenda-se utilizar a Opção 11 do menu para padronizar e atualizar o sistema."
+fi
+
+# Auditoria de Mudança de Arquitetura em relação ao Baseline Homologado
+if declare -f verificar_compatibilidade_mb8 >/dev/null 2>&1; then
+    verificar_compatibilidade_mb8 --audit
+    if [ "${MB8_ARCH_STATUS:-0}" -eq 0 ]; then
+        check_result "PASS" \
+            "Arquitetura MagnusBilling 8 compatível com o Baseline Homologado (${MB8_HOMOLOGATED_SHORT:-d901491})" \
+            "Os pilares estruturais (AsteriskAccess.php, UpdateMysqlCommand.php, install.sh) permanecem compatíveis."
+    elif [ "${MB8_ARCH_STATUS:-0}" -eq 1 ]; then
+        check_result "WARN" \
+            "Novos commits secundários detectados no repositório oficial após o baseline ${MB8_HOMOLOGATED_SHORT:-d901491}" \
+            "Os arquivos estruturais principais não mudaram, mas há atualizações em controllers/models."
+    else
+        check_result "WARN" \
+            "Mudança em arquivos estruturais do MagnusBilling 8 detectada após o baseline ${MB8_HOMOLOGATED_SHORT:-d901491}" \
+            "O repositório oficial alterou componentes centrais (PJSIP/Instalador/Migrations)." \
+            "Homologue as mudanças em ambiente de testes antes de rodar scripts em produção."
+    fi
 fi
 
 # ---------------------------------------------------------------------

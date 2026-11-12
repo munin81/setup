@@ -80,6 +80,10 @@ if [ -s /etc/asterisk/keys/asterisk.pem ] && [ -s /etc/asterisk/keys/asterisk.ke
 else
     warn "Certificados TLS em /etc/asterisk/keys/: AUSENTES"
 fi
+
+if declare -f verificar_compatibilidade_mb8 >/dev/null 2>&1; then
+    verificar_compatibilidade_mb8
+fi
 echo ""
 
 # ---------------------------------------------------------------------

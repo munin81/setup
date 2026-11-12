@@ -98,6 +98,11 @@ else
   warn "Arquivo /etc/asterisk/pjsip.conf não encontrado. Verifique se o MB8 foi instalado corretamente."
 fi
 
+# Verifica compatibilidade de arquitetura do MagnusBilling 8 (Baseline vs Atual)
+if declare -f verificar_compatibilidade_mb8 >/dev/null 2>&1; then
+  verificar_compatibilidade_mb8
+fi
+
 # Leitura da senha do banco local do MB8
 DB_CONF="/etc/asterisk/res_config_mysql.conf"
 [ ! -f "$DB_CONF" ] && erro "Arquivo $DB_CONF não encontrado no destino."
